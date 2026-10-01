@@ -1,0 +1,48 @@
+# Local working documents — kept out of the repo
+IDEA.md
+*.implementation-plan.md
+
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build output
+dist/
+build/
+src-tauri/target/
+*.tsbuildinfo
+
+# Test / benchmark artifacts
+coverage/
+playwright-report/
+test-results/
+tests/performance/results/
+.benchmarks/
+
+# Local dictionaries and books (large, licensed or personal)
+*.db
+*.sqlite
+*.sqlite3
+*.pack/
+dictionaries/
+books/
+fixtures/private/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Editors / OS
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+
+# Logs
+*.log
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
