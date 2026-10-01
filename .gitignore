@@ -1,3 +1,8 @@
+node_modules/
+dist/
+.env
+*.log
+.DS_Store
 # Local working documents — kept out of the repo
 IDEA.md
 *.implementation-plan.md
