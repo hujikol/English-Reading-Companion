@@ -1,0 +1,46 @@
+# Production hosting headers. Track H. Cloudflare Pages / Netlify `_headers` syntax.
+#
+# Verification target is production-like hosting: Section 21 makes header, MIME
+# and WASM/worker path testing a release gate. tests/pwa/headers.test.ts parses
+# this file and asserts the policy, so a loosening edit fails CI.
+
+/*
+  # Placeholder pending Track G (Section 22.5: H coordinates CSP destinations
+  # with G). Replace the API host when G lands the transport; do not widen this
+  # list to arbitrary origins or to a proxy that forwards anywhere.
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://api.anthropic.com; worker-src 'self'; child-src 'self'; manifest-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'; frame-src 'none'; frame-ancestors 'none'
+  # 'wasm-unsafe-eval' is required by WebAssembly.compile and is NOT
+  # 'unsafe-eval': arbitrary eval stays blocked. style-src 'unsafe-inline' is
+  # for React style attributes; scripts have no inline allowance at all.
+  Referrer-Policy: no-referrer
+  X-Content-Type-Options: nosniff
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), interest-cohort=()
+  Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
+
+/assets/*
+  # Vite emits content-hashed filenames here (shell JS/CSS, PDF worker, WASM,
+  # fonts/CMaps, dictionary packs): immutable and safe to cache forever.
+  Cache-Control: public, max-age=31536000, immutable
+
+/index.html
+  # The one mutable entry point: must revalidate so a reload sees a new shell.
+  Cache-Control: no-cache
+
+/sw.js
+  # Never cache the worker script, or updates can never be discovered.
+  Cache-Control: no-cache
+
+/manifest.webmanifest
+  Cache-Control: no-cache
+
+# MIME types. Most hosts map these already; declared explicitly because
+# Section 21 makes worker/WASM paths a release gate, and with `nosniff` a wrong
+# type fails closed instead of degrading quietly.
+/assets/*.wasm
+  Content-Type: application/wasm
+
+/assets/*.mjs
+  Content-Type: text/javascript; charset=utf-8
+
+/assets/*.js
+  Content-Type: text/javascript; charset=utf-8

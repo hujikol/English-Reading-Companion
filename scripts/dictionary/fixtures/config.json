@@ -1,0 +1,12 @@
+{
+  "source": "sample.dsl",
+  "sourceSha256": "06e25e6b5669fd91d804e5a32d4cc02eba5d607c8d96d09a87a81d975d7cf265",
+  "packVersion": "0.0.0-fixture.1",
+  "sourceUrl": "scripts/dictionary/fixtures/sample.dsl",
+  "sourceRevision": "hand-built-fixture",
+  "license": "CC0-1.0",
+  "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "attribution": "Hand-built test fixture. Not dictionary data. No coverage claims.",
+  "outDir": "../../../dictionaries/fixture",
+  "chunkRows": 4
+}

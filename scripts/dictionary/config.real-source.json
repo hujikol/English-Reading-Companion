@@ -1,0 +1,19 @@
+{
+  "_comment": [
+    "Template for the real licensed artifact. Copy to config.json, download the",
+    "source, fill in sourceSha256 from the release checksum, then run",
+    "`node --experimental-strip-types scripts/dictionary/build-pack.ts scripts/dictionary/config.json`.",
+    "The artifact is not vendored: it is large, licensed, and must stay out of git.",
+    "The sha256 is a PIN, not a formality — the build refuses to run on a mismatch."
+  ],
+  "source": "../../../dictionaries/vendor/en-id.dsl",
+  "sourceSha256": "REPLACE_WITH_SHA256_OF_DOWNLOADED_FILE",
+  "packVersion": "0.1.0",
+  "sourceUrl": "https://github.com/open-dsl-dict/wiktionary-dict/releases/download/RELEASE/en-id.dsl.gz",
+  "sourceRevision": "REPLACE_WITH_RELEASE_TAG_OR_COMMIT",
+  "license": "CC BY-SA 3.0 / GFDL",
+  "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/",
+  "attribution": "REPLACE: dictionary sense text is CC BY-SA 3.0 / GFDL; the shipped pack must carry the artifact's own notice verbatim in Settings.",
+  "outDir": "../../../diction-packs/main",
+  "chunkRows": 2000
+}
