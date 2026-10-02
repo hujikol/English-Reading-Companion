@@ -2,7 +2,7 @@ import { useState } from "react";
 import { LibraryScreen } from "./LibraryScreen.tsx";
 import { ReviewScreen } from "./ReviewScreen.tsx";
 import { VocabularyScreen } from "./VocabularyScreen.tsx";
-import { ReaderShell } from "../ui/reader/ReaderShell.tsx";
+import { ReaderScreen } from "./ReaderScreen.tsx";
 
 type Tab = "library" | "reader" | "vocabulary" | "review";
 
@@ -17,6 +17,15 @@ const TABS: { id: Tab; label: string }[] = [
 // keeping in sync — a tab that cannot be linked to does not need a router.
 export function App() {
   const [tab, setTab] = useState<Tab>("library");
+  // The library hands a stored document to the reader. Holding the File here
+  // means switching tabs does not lose it, and re-rendering the reader does not
+  // reopen the document over the learner's place.
+  const [pendingDocument, setPendingDocument] = useState<File | undefined>(undefined);
+
+  const openInReader = (file: File) => {
+    setPendingDocument(file);
+    setTab("reader");
+  };
 
   return (
     <>
@@ -35,8 +44,8 @@ export function App() {
           ))}
         </ul>
       </nav>
-      {tab === "library" && <LibraryScreen />}
-      {tab === "reader" && <ReaderShell />}
+      {tab === "library" && <LibraryScreen onOpenDocument={openInReader} />}
+      {tab === "reader" && <ReaderScreen pendingDocument={pendingDocument} />}
       {tab === "vocabulary" && <VocabularyScreen />}
       {tab === "review" && <ReviewScreen />}
     </>

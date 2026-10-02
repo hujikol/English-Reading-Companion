@@ -12,6 +12,7 @@ import { db, deleteSource, type DocumentRecord, type ProgressRecord } from "../d
 import { exportBackup } from "../features/settings/backup/backup.ts";
 import { exportVocabularyCsv } from "../features/settings/backup/csv.ts";
 import { trackFStore } from "../features/vocabulary/store.ts";
+import { reopenDocument } from "../ui/library/reopen.ts";
 import {
   announceExport,
   backupFileName,
@@ -37,7 +38,12 @@ const DOWNLOAD = (blob: Blob, fileName: string): void => {
   URL.revokeObjectURL(url);
 };
 
-export function LibraryScreen() {
+export type LibraryScreenProps = {
+  /** Hand a stored document to the reader. Omitted renders the list only. */
+  onOpenDocument?: (file: File) => void | Promise<void>;
+};
+
+export function LibraryScreen({ onOpenDocument }: LibraryScreenProps = {}) {
   const [rows, setRows] = useState<LibraryRow[]>([]);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<Notice | null>(null);
@@ -94,6 +100,30 @@ export function LibraryScreen() {
       }
     },
     [refresh],
+  );
+
+  const onOpen = useCallback(
+    async (documentId: string) => {
+      setBusy(true);
+      setNotice(null);
+      try {
+        const result = await reopenDocument(documentId);
+        if (!result.ok) {
+          setNotice({
+            tone: "error",
+            text:
+              result.reason === "no-stored-bytes"
+                ? "The original file is no longer on this device. Import it again to read it."
+                : "That document could not be found.",
+          });
+          return;
+        }
+        await onOpenDocument?.(result.file);
+      } finally {
+        setBusy(false);
+      }
+    },
+    [onOpenDocument],
   );
 
   const onRemove = useCallback(
@@ -180,6 +210,15 @@ export function LibraryScreen() {
                 </p>
                 {row.document.importState !== "ready" && <p className="erc-library__warn">This document is not saved on this device.</p>}
               </div>
+              <button
+                type="button"
+                className="erc-btn"
+                onClick={() => void onOpen(row.document.id)}
+                disabled={onOpenDocument === undefined || row.document.importState !== "ready"}
+                aria-label={`Open ${row.document.title}${row.positionLabel === "" ? "" : `, ${row.positionLabel}`}`}
+              >
+                {row.positionLabel === "" ? "Open" : `Open ${row.positionLabel}`}
+              </button>
               <button type="button" className="erc-btn erc-btn--quiet" onClick={() => void onRemove(row.document.id)} aria-label={`Remove ${row.document.title}`}>
                 Remove
               </button>

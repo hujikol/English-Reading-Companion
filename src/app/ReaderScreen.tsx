@@ -70,7 +70,17 @@ type OpenState = {
   restored: { page: number; fraction: number };
 };
 
-export function ReaderScreen() {
+export type ReaderScreenProps = {
+  /**
+   * A document to open from outside the reader (the library). Applied as an
+   * effect rather than a prop watch so handing over the same File twice does not
+   * reopen it twice.
+   */
+  pendingDocument?: File | undefined;
+  onDocumentOpened?: (documentId: string) => void;
+};
+
+export function ReaderScreen({ pendingDocument, onDocumentOpened }: ReaderScreenProps = {}) {
   const [status, setStatus] = useState<Status>("empty");
   const [errors, setErrors] = useState<ImportError[]>([]);
   const [notices, setNotices] = useState<ImportNotice[]>([]);
@@ -283,6 +293,16 @@ export function ReaderScreen() {
     },
     [tier],
   );
+  // A document handed over by the library. A ref guard, not a dependency on the
+  // File identity: the library may hand the same File twice and reopening on
+  // every parent render would fight the learner's place in the book.
+  const openedExternal = useRef<File | undefined>(undefined);
+  useEffect(() => {
+    if (pendingDocument === undefined) return;
+    if (openedExternal.current === pendingDocument) return;
+    openedExternal.current = pendingDocument;
+    void openFile(pendingDocument, "");
+  }, [pendingDocument]);
 
   // Load marks and bookmarks for the open document.
   const documentId = open?.documentId;
