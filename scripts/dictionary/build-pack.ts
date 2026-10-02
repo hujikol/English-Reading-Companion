@@ -52,7 +52,11 @@ export async function loadConfig(path: string): Promise<BuildConfig> {
     }
   }
   // ponytail: relative paths resolve against the config file, not process.cwd().
-  return { ...(raw as BuildConfig), source: resolve(dirname(path), raw.source as string), outDir: resolve(dirname(path), raw.outDir) };
+  // noUncheckedIndexedAccess widens these back to `string | undefined`; the loop
+  // above proved each is a non-empty string, so narrow once instead of casting
+  // per field.
+  const { source, outDir } = raw as Record<(typeof need)[number], string>;
+  return { ...(raw as BuildConfig), source: resolve(dirname(path), source), outDir: resolve(dirname(path), outDir) };
 }
 
 /** Full validation pass over built output. A pack that fails this is never installed. */

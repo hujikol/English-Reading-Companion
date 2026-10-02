@@ -70,3 +70,21 @@ export type { AdapterError, AdapterInit, ExtractResult, InspectorAdapter } from 
 
 export { FakeInspector, fakeMarker } from "./fakeInspector.ts";
 export type { FakeInspectorSpec, FakePageSpec } from "./fakeInspector.ts";
+
+// The real parser. `loadInspectorEngine` is the production entry point: it
+// resolves the `.wasm` for the environment and returns an engine that satisfies
+// the same `InspectorEngine` interface `FakeInspector` does, so nothing above
+// the adapter changes when the fake is swapped for the real thing.
+export {
+  createWasmInspector,
+  detectOnly,
+  extractRawText,
+  initInspectorWasm,
+  isWasmReady,
+  loadInspectorEngine,
+  WasmInspector,
+} from "./wasm/index.ts";
+export type { WasmInitInput } from "./wasm/index.ts";
+
+export { associatePages } from "./wasm/pageMapping.ts";
+export type { AssociatedPage, Association, AssociateOptions } from "./wasm/pageMapping.ts";

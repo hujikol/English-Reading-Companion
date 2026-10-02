@@ -1,0 +1,166 @@
+name: CI
+
+# Pull-request checks for Section 21. Every job installs with `npm ci`, so a
+# lockfile/package.json mismatch fails here instead of drifting locally.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# A second push to the same PR supersedes the first; the superseded run is
+# cancelled rather than left to consume the runner minutes it already started.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # Pinned so a runner-side default change cannot silently move the toolchain.
+  NODE_VERSION: "24"
+
+jobs:
+  verify:
+    name: typecheck, test, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      # Cache keyed on the lockfile hash, not on package.json: a dependency
+      # edit that does not reach the lockfile must not reuse an install that
+      # predates it, and `npm ci` below would have thrown anyway.
+      - name: Cache node_modules
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: node-modules-${{ runner.os }}-node${{ env.NODE_VERSION }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            node-modules-${{ runner.os }}-node${{ env.NODE_VERSION }}-
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Report toolchain
+        run: |
+          node --version
+          npm --version
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit and integration tests
+        run: npm test
+
+      - name: Build production bundle
+        run: npm run build
+
+      # Runs after the build so it can measure and verify the bytes that
+      # actually shipped, not a prediction of them.
+      - name: Generate and verify the offline asset inventory
+        run: |
+          node src/pwa/offline-assets.build.ts inventory
+          node src/pwa/offline-assets.build.ts smoke
+
+      # The PWA tests assert against the generated inventory, so they run
+      # again here with dist/ present rather than only in the earlier step.
+      - name: Offline delivery tests against the built bundle
+        run: npx vitest run tests/pwa/
+
+      - name: Upload build output
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          retention-days: 7
+          if-no-files-found: error
+
+  benchmark-smoke:
+    name: benchmark smoke (delivery budgets)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Cache node_modules
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: node-modules-${{ runner.os }}-node${{ env.NODE_VERSION }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            node-modules-${{ runner.os }}-node${{ env.NODE_VERSION }}-
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      # The only benchmark that can run honestly today is the delivery-budget
+      # one: Section 16 fixes budgets for the shell, the lazy PDF engine and
+      # the inspector WASM, and those are measurable from the build output.
+      # Section 16's device/battery corpus benchmarks (first readable page,
+      # memory, long-session leaks) are NOT implemented and are not faked
+      # here — see docs/known-limitations.md.
+      - name: Build
+        run: npm run build
+
+      - name: Delivery budget smoke check
+        run: |
+          node src/pwa/offline-assets.build.ts inventory
+          node src/pwa/offline-assets.build.ts smoke
+
+      - name: Record compressed sizes as the benchmark artifact
+        run: |
+          mkdir -p test-results/benchmarks
+          node src/pwa/offline-assets.build.ts smoke > test-results/benchmarks/delivery-budgets.txt
+          cat test-results/benchmarks/delivery-budgets.txt
+
+      - name: Upload benchmark record
+        uses: actions/upload-artifact@v4
+        with:
+          name: delivery-budgets
+          path: test-results/benchmarks/
+          retention-days: 30
+
+  advisories:
+    name: dependency advisories
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Cache node_modules
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: node-modules-${{ runner.os }}-node${{ env.NODE_VERSION }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            node-modules-${{ runner.os }}-node${{ env.NODE_VERSION }}-
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      # Section 21 blocks exploitable high/critical findings "unless an
+      # explicit, time-bounded exception is documented". The five known
+      # findings are all dev-only (vite/vitest/esbuild, reachable only via a
+      # local dev server) and the only fix is a breaking vite 8 + vitest 5
+      # upgrade. docs/known-limitations.md records that exception; this step
+      # reports the real audit output and fails on anything NEW.
+      - name: Audit production dependencies only
+        run: npm audit --omit=dev
+
+      - name: Report dev-only findings without blocking
+        continue-on-error: true
+        run: npm audit

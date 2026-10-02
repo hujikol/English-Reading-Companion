@@ -1,41 +1,110 @@
-# Production hosting headers. Track H. Cloudflare Pages / Netlify `_headers` syntax.
+# Production hosting headers. Track H.
+# Cloudflare Pages / Netlify `_headers` syntax.
 #
 # Verification target is production-like hosting: Section 21 makes header, MIME
 # and WASM/worker path testing a release gate. tests/pwa/headers.test.ts parses
 # this file and asserts the policy, so a loosening edit fails CI.
+#
+# CACHING RULE, applied consistently below
+#   content-hashed URL in the filename -> immutable, cache forever
+#   stable URL that the build regenerates -> no-cache
+# Vite emits the app shell into /assets with a content hash, so those are
+# immutable. The vendored PDF.js, inspector and inventory files are COPIED to
+# stable paths (/pdfjs/*, /inspector/*, /offline-assets.json), so they must
+# revalidate: marking them immutable would pin every install to whatever bytes
+# the first response happened to return, even after a dependency upgrade.
 
 /*
-  # Placeholder pending Track G (Section 22.5: H coordinates CSP destinations
-  # with G). Replace the API host when G lands the transport; do not widen this
-  # list to arbitrary origins or to a proxy that forwards anywhere.
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://api.anthropic.com; worker-src 'self'; child-src 'self'; manifest-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'; frame-src 'none'; frame-ancestors 'none'
-  # 'wasm-unsafe-eval' is required by WebAssembly.compile and is NOT
-  # 'unsafe-eval': arbitrary eval stays blocked. style-src 'unsafe-inline' is
-  # for React style attributes; scripts have no inline allowance at all.
+  # Restrictive by default. Everything below is justified in public/README.md;
+  # the short version is repeated here so an editor reading only this file
+  # cannot accidentally widen the policy.
+  #
+  # - default-src 'self'      : anything not named below is same-origin only.
+  # - script-src 'self' 'wasm-unsafe-eval'
+  #                           : self-hosted scripts only. 'wasm-unsafe-eval'
+  #                             is the narrow allowance WebAssembly.compile /
+  #                             instantiateStreaming require for the inspector
+  #                             WASM (Track E). It is NOT 'unsafe-eval':
+  #                             eval(), new Function() and friends stay
+  #                             blocked. There is no 'unsafe-inline' here, so
+  #                             no inline script can run at all.
+  # - worker-src 'self'       : the PDF.js worker and the inspector worker are
+  #                             both same-origin module workers. 'blob:' is
+  #                             deliberately ABSENT: public/inspector/
+  #                             pdf_inspector_wasm.js fetches its .wasm and
+  #                             calls WebAssembly.instantiateStreaming, and
+  #                             neither it nor pdf.worker.mjs constructs a
+  #                             Blob URL or a nested Worker. Section 18 allows
+  #                             a Blob/frame exception only when proven
+  #                             necessary by an integration test, and no such
+  #                             test requires it. Re-add 'blob:' only with the
+  #                             test that demands it.
+  # - connect-src 'self' https://api.anthropic.com
+  #                           : PLACEHOLDER PENDING TRACK G (Section 22.5: H
+  #                             coordinates CSP destinations with G). No other
+  #                             origin is permitted. Do not add wildcard
+  #                             subdomains or an open proxy destination.
+  # - style-src 'self' 'unsafe-inline'
+  #                           : React sets style attributes inline. Scripts
+  #                             get no inline allowance.
+  # - object-src/frame-src/frame-ancestors 'none'
+  #                           : no plugins, no remote documents, no embedding.
+  # - base-uri/form-action 'none'
+  #                           : no base-tag hijack, no form exfiltration.
+  # - font-src/manifest-src 'self'
+  #                           : standard fonts and CMaps are served from our
+  #                             origin; Section 18 forbids remote document
+  #                             resources. img-src adds data: for inline icons.
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; child-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://api.anthropic.com; manifest-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'; frame-src 'none'; frame-ancestors 'none'
   Referrer-Policy: no-referrer
   X-Content-Type-Options: nosniff
+  # A reading app needs no camera, microphone, geolocation or FLoC-style
+  # cohort signal.
   Permissions-Policy: camera=(), microphone=(), geolocation=(), interest-cohort=()
   Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
-
-/assets/*
-  # Vite emits content-hashed filenames here (shell JS/CSS, PDF worker, WASM,
-  # fonts/CMaps, dictionary packs): immutable and safe to cache forever.
-  Cache-Control: public, max-age=31536000, immutable
 
 /index.html
   # The one mutable entry point: must revalidate so a reload sees a new shell.
   Cache-Control: no-cache
 
 /sw.js
-  # Never cache the worker script, or updates can never be discovered.
+  # Never cache the worker script, or a new version can never be discovered.
   Cache-Control: no-cache
 
 /manifest.webmanifest
   Cache-Control: no-cache
 
+/offline-assets.json
+  # The precache inventory. It records the byte count and sha384 digest of
+  # every precached file; a stale copy would make computeReadiness() compare
+  # the cache against yesterday's build and either block a valid install or
+  # accept a replaced asset. Always revalidate.
+  Cache-Control: no-cache
+
+/assets/*
+  # Vite emits content-hashed filenames here (app shell JS/CSS). Immutable.
+  Cache-Control: public, max-age=31536000, immutable
+
+/icons/*
+  # Install icons. Stable filenames regenerated by the build, so they
+  # revalidate; the payload is under 2 KB so revalidation is free.
+  Cache-Control: no-cache
+
+/pdfjs/*
+  # Vendored PDF.js runtime: the worker, CMaps and standard fonts. Copied to a
+  # stable path by the asset-prep step, so NOT immutable — see the rule at the
+  # top of this file. A wrong MIME here fails closed under nosniff.
+  Cache-Control: no-cache
+
+/inspector/*
+  # Vendored inspector WASM and its JS glue. Stable path, revalidating.
+  Cache-Control: no-cache
+
 # MIME types. Most hosts map these already; declared explicitly because
-# Section 21 makes worker/WASM paths a release gate, and with `nosniff` a wrong
-# type fails closed instead of degrading quietly.
+# Section 21 makes worker and WASM paths a release gate, and with `nosniff` a
+# wrong type fails closed instead of degrading quietly. The /assets/ rules
+# cover Vite-emitted output; the /pdfjs/ and /inspector/ rules cover the
+# vendored runtime the precache depends on.
 /assets/*.wasm
   Content-Type: application/wasm
 
@@ -44,3 +113,24 @@
 
 /assets/*.js
   Content-Type: text/javascript; charset=utf-8
+
+/pdfjs/*.mjs
+  Content-Type: text/javascript; charset=utf-8
+
+/inspector/*.wasm
+  Content-Type: application/wasm
+
+/inspector/*.js
+  Content-Type: text/javascript; charset=utf-8
+
+# PDF.js reads CMaps and standard fonts as binary via fetch() and decodes them
+# itself, so an explicit binary type is both accurate and the safe default
+# under nosniff.
+/pdfjs/cmaps/*.bcmap
+  Content-Type: application/octet-stream
+
+/pdfjs/standard_fonts/*.ttf
+  Content-Type: font/ttf
+
+/pdfjs/standard_fonts/*.pfb
+  Content-Type: application/octet-stream
