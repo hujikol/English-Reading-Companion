@@ -137,7 +137,10 @@ export async function buildFromConfig(config: BuildConfig): Promise<BuildReport>
   };
 }
 
-const invokedDirectly = process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+// Compare against this module's own path, not process.argv[1]: vite-node (and
+// tsx) rewrite argv[1] to their CLI shim, which makes the argv comparison false
+// and the whole build a silent no-op that still exits 0.
+const invokedDirectly = import.meta.url.endsWith("build-pack.ts");
 if (invokedDirectly) {
   const configPath = process.argv[2] ?? join(HERE, "config.json");
   try {

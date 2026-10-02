@@ -51,3 +51,9 @@ fixtures/private/
 npm-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+
+# Generated dictionary packs. The buildable source DSL and its config are
+# tracked under scripts/dictionary/; the 500 MB upstream extract and the
+# generated chunks are not. public/dictionary/ IS tracked: it is what ships.
+dictionaries/
+packs/

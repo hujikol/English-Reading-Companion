@@ -49,7 +49,8 @@ export type AssetGroupId =
   | "pdfjs-cmaps"
   | "pdfjs-standard-fonts"
   | "inspector-wasm"
-  | "inspector-glue";
+  | "inspector-glue"
+  | "dictionary";
 
 /**
  * One precached file. Structurally an AssetEntry plus the group and the
@@ -136,6 +137,9 @@ export const BUDGET_BY_GROUP: Readonly<Record<AssetGroupId, keyof typeof DELIVER
   "pdfjs-standard-fonts": "offlineInstall",
   "inspector-wasm": "inspectorWasm",
   "inspector-glue": "inspectorWasm",
+  // The dictionary pack is charged to the total-install budget, not the engine
+  // budget: it is a content pack, not part of the PDF pipeline.
+  dictionary: "offlineInstall",
 };
 
 /** Sum of raw bytes. Reported honestly; transfer size is tracked separately. */

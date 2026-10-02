@@ -1,0 +1,82 @@
+{
+  "packVersion": "0.1.0",
+  "schemaVersion": 1,
+  "builtFrom": {
+    "sourceUrl": "https://kaikki.org/dictionary/English/kaikki.org-dictionary-English.jsonl.gz",
+    "sourceRevision": "kaikki.org English extract, wiktextract 1a05e46 / e3d6d4e",
+    "sourceSha256": "94c2fa05c1fd8b10eb206d5e3b1fc5ec25e177f296623c6c56a17c2a3c7a1c21",
+    "license": "CC BY-SA 3.0/4.0 AND GFDL",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+    "attribution": "Dictionary data from Wiktionary contributors (CC BY-SA 4.0/GFDL), extracted via kaikki.org by Tatu Ylonen. Sense text is the contributors'; this pack is a derivative and carries the same licence."
+  },
+  "entryCount": 17876,
+  "headwordCount": 12369,
+  "senseCount": 17876,
+  "rawBytes": 3430560,
+  "compressedBytes": 244557,
+  "chunks": [
+    {
+      "file": "pack-0.1.0-0000.json.gz",
+      "rawBytes": 384669,
+      "compressedBytes": 27314,
+      "rawSha256": "ae8068730a79e85d43b2c6eb7fd17c5b589f5d20576371cd77df29f6c0caea31",
+      "rowCount": 2000
+    },
+    {
+      "file": "pack-0.1.0-0001.json.gz",
+      "rawBytes": 384097,
+      "compressedBytes": 27248,
+      "rawSha256": "c920375e8e388290b97ece78cb12dad40ae591082373e5bc95447082221c9de9",
+      "rowCount": 2000
+    },
+    {
+      "file": "pack-0.1.0-0002.json.gz",
+      "rawBytes": 385254,
+      "compressedBytes": 27309,
+      "rawSha256": "503e706aa4b3e9cba7de7d24575b662fde435ff5ef8c9b0637f6b348f50a2cfc",
+      "rowCount": 2000
+    },
+    {
+      "file": "pack-0.1.0-0003.json.gz",
+      "rawBytes": 382842,
+      "compressedBytes": 27149,
+      "rawSha256": "3050cf91e2c73387fc5c946d16292fb8f4ee98312c5ac9a5730061341266af9f",
+      "rowCount": 2000
+    },
+    {
+      "file": "pack-0.1.0-0004.json.gz",
+      "rawBytes": 384327,
+      "compressedBytes": 27909,
+      "rawSha256": "4cda0abe1a4492460f97c8f779f51e3f2f79af2b10dacb6cd5495e41b75446c0",
+      "rowCount": 2000
+    },
+    {
+      "file": "pack-0.1.0-0005.json.gz",
+      "rawBytes": 383918,
+      "compressedBytes": 27884,
+      "rawSha256": "cb2eb08f716e51221ae976e0cf4d853a0227dcbbc483b64cdf2a68c83e8f4c4f",
+      "rowCount": 2000
+    },
+    {
+      "file": "pack-0.1.0-0006.json.gz",
+      "rawBytes": 383539,
+      "compressedBytes": 26856,
+      "rawSha256": "b347014d529d901d97d3a7d16139063acf21e07f674c92a529c1d7ff190fe2be",
+      "rowCount": 2000
+    },
+    {
+      "file": "pack-0.1.0-0007.json.gz",
+      "rawBytes": 381997,
+      "compressedBytes": 26980,
+      "rawSha256": "d756498f9da0ea0e452b7bb280b5a16e1ee9fc75b9f9ef90503645a56203c7dd",
+      "rowCount": 2000
+    },
+    {
+      "file": "pack-0.1.0-0008.json.gz",
+      "rawBytes": 359917,
+      "compressedBytes": 25908,
+      "rawSha256": "f5cc7ac267a7b7bc594bb966c8e76d9e47e89c6a5e602dc73b62ac13c7dc7741",
+      "rowCount": 1876
+    }
+  ]
+}

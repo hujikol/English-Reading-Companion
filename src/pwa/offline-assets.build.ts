@@ -73,7 +73,26 @@ const VENDOR_ASSETS: readonly {
   pkg: string;
   /** true = one file; false = every file in the directory */
   single: boolean;
+  /**
+   * Version string reported for this group. Defaults to the npm package
+   * version; set `version` for assets that are not an npm package (the
+   * dictionary pack is a generated artifact, not a dependency).
+   */
+  version?: string;
 }[] = [
+  {
+    // The offline dictionary pack. Precached because a learner reading offline
+    // must still be able to look a word up: without it every lookup reports
+    // "no pack", which is the app's whole reason for existing.
+    group: "dictionary",
+    kind: "dictionary",
+    producer: "C",
+    from: "public/dictionary",
+    urlPrefix: "/dictionary",
+    pkg: "Wiktionary CC BY-SA 4.0/GFDL via kaikki.org",
+    version: "en-id-0.1.0",
+    single: false,
+  },
   {
     group: "pdfjs-cmaps",
     kind: "cmap",
@@ -317,7 +336,7 @@ async function collect(): Promise<Inventory> {
   // the difference between a reading app and a shell.
   for (const spec of VENDOR_ASSETS) {
     const abs = path.join(ROOT, spec.from);
-    const producerVersion = await pkgVersion(spec.pkg);
+    const producerVersion = spec.version ?? (await pkgVersion(spec.pkg));
     if (spec.single) {
       const m = await measure(abs, spec.urlPrefix);
       account(
