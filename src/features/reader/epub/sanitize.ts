@@ -10,7 +10,16 @@
  * through verbatim.
  */
 
-const VOID_TAGS = new Set(["br", "hr", "img", "col", "wbr"]);
+/**
+ * The HTML void elements: they never have a closing tag and never have
+ * content. This must be the FULL list, not just the ones we re-emit — a void
+ * tag that reaches the drop-content branch looking for `</tag` would run to
+ * end-of-document and eat the entire chapter.
+ */
+const VOID_TAGS = new Set([
+  "area", "base", "br", "col", "embed", "hr", "img", "input", "link",
+  "meta", "param", "source", "track", "wbr",
+]);
 
 /** Tags whose CONTENT is dropped along with the tag. Script/style bodies are
  * raw text, so their contents must be consumed, not re-emitted. */
@@ -373,6 +382,10 @@ export function sanitizeChapter(xhtml: string, options: SanitizeOptions = {}): S
     if (DROP_CONTENT_TAGS.has(name)) {
       counters.droppedTags++;
       counters.droppedContentBlocks++;
+      // script/style hold raw text that must be consumed to a close tag, and so do
+      // the container tags (iframe/object/etc.), whose fallback content must not
+      // survive. VOID elements must NOT be treated this way: they never have a
+      // close tag, so the search runs to end-of-document and eats the chapter.
       if (name === "script" || name === "style" || !VOID_TAGS.has(name)) {
         // Consume raw content up to the matching close tag.
         const closeTag = `</${name}`;
