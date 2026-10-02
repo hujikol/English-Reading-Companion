@@ -39,16 +39,9 @@ import {
   type ProducerTrack,
 } from "./offline-assets.ts";
 
-// TRACK A CONTRACT GAP (one line, needs A): src/pwa/manifest.ts declares
-// `ProducerTrack = "B" | "C" | "D" | "E"`, but the app shell is produced by
-// track A, which owns the build config (Section 22.1). The honest attribution
-// is therefore unrepresentable in the current union.
-//
-// This cast writes the TRUE value ("A") into the inventory rather than
-// mislabelling the shell as some other track and letting that false
-// attribution flow into diagnostics reports. Fix: add "A" to ProducerTrack in
-// manifest.ts and delete this constant.
-const SHELL_PRODUCER = "A" as ProducerTrack;
+// The app shell is produced by Track A, which owns the build config
+// (Section 22.1). `ProducerTrack` includes "A", so this needs no cast.
+const SHELL_PRODUCER: ProducerTrack = "A";
 
 const ROOT = process.cwd();
 const DIST = path.join(ROOT, "dist");

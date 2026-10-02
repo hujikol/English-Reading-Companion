@@ -7,7 +7,11 @@
  * never about shell caching.
  */
 
-export type ProducerTrack = "B" | "C" | "D" | "E";
+/**
+ * Which track produces an asset. "A" is the app shell itself — Track A owns the
+ * build config, so the shell has no other honest owner.
+ */
+export type ProducerTrack = "A" | "B" | "C" | "D" | "E";
 
 export type AssetKind = "shell" | "pdf-worker" | "wasm" | "font" | "cmap" | "dictionary";
 
