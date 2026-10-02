@@ -93,8 +93,12 @@ describe("import", () => {
       {
         persist: async (document) => {
           persisted.push(document);
-          // the record is written as `saving`; only a resolved write may claim ready
-          expect(document.importState).toBe("saving");
+          // `persist` writes the row AND the bytes together, so the row is in
+          // its final state at the moment it is written. It used to be written
+          // as "saving" with the intent of promoting it afterwards — nothing
+          // ever did that, so every stored document stayed "saving" and the
+          // library's Open button stayed disabled forever.
+          expect(document.importState).toBe("ready");
           expect(document.contentHash).toMatch(/^[0-9a-f]{64}$/);
         },
         findByHash: async () => undefined,
@@ -124,7 +128,8 @@ describe("import", () => {
     expect(outcome.kind).toBe("temporary");
     if (outcome.kind === "temporary") {
       expect(outcome.message).toBe("quota exceeded");
-      expect(outcome.document.importState).toBe("saving");
+      // A failed write never claims to be saved.
+      expect(outcome.document.importState).not.toBe("ready");
     }
   });
 

@@ -159,6 +159,10 @@ export async function importDocument(
   );
   if (decision.kind === "duplicate" && existing !== undefined) return { kind: "reused", document: existing, reused: true };
 
+  // persist() writes the document row and its bytes together. So the row must be
+  // persisted in the state it will actually be in afterwards: writing "saving"
+  // and returning a "ready" copy left every stored document permanently marked
+  // "saving", which disabled the library's Open button for good.
   const document: DocumentRecord = {
     id: plan.documentId,
     contentHash,
@@ -168,17 +172,22 @@ export async function importDocument(
     byteSize: source.size,
     importedAt: now,
     lastOpenedAt: now,
-    importState: "saving",
+    importState: "ready",
   };
 
   try {
     await deps.persist(document, new Blob([source.bytes.slice().buffer], { type: source.type || "application/octet-stream" }));
   } catch (e) {
-    // truthful failure: the file still renders for this session, but nothing is persisted
-    return { kind: "temporary", document, message: e instanceof Error ? e.message : "The file could not be saved on this device." };
+    // Truthful failure: nothing was persisted, so the row (if any) is not
+    // claimable. The file still reads for this session.
+    return {
+      kind: "temporary",
+      document: { ...document, importState: "temporary" },
+      message: e instanceof Error ? e.message : "The file could not be saved on this device.",
+    };
   }
 
-  return { kind: "imported", document: { ...document, importState: "ready" }, reused: false };
+  return { kind: "imported", document, reused: false };
 }
 
 // ------------------------------------------------------------------ listing

@@ -65,12 +65,24 @@
 
 .reader__page canvas {
   display: block;
+  /* The bitmap is pageWidth * deviceScale. Without an explicit CSS size the
+     canvas lays out at that intrinsic pixel size, so on a 2x display it is
+     twice the page box: it overflows onto the next page, and the text layer —
+     sized to the box — no longer covers the visible ink, so text cannot be
+     selected. The bitmap keeps its resolution; only its layout size is CSS. */
+  width: 100%;
+  height: 100%;
 }
 
 .reader__page .textLayer {
   position: absolute;
-  /* PDF.js sets this box's width/height from the page viewport (via
-     --total-scale-factor); only the origin is ours to pin. */
+  /* PDF.js sizes this box with `round(down, calc(var(--total-scale-factor) * Wpx),
+     var(--scale-round-x))` when CSS round() is supported (Chrome 125+). Those
+     two variables are set by pdfjs-dist's VIEWER stylesheet, which an app using
+     the API never loads. Left undefined, the value is invalid at computed-value
+     time, the box collapses, and no text is selectable over the page. */
+  --scale-round-x: 1px;
+  --scale-round-y: 1px;
   left: 0;
   top: 0;
   overflow: clip;

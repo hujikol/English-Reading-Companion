@@ -51,10 +51,22 @@ export function LibraryScreen({ onOpenDocument }: LibraryScreenProps = {}) {
   const headingId = useId();
 
   const refresh = useCallback(async () => {
-    const [documents, progress] = await Promise.all([
+    const [documents, progress, assets] = await Promise.all([
       db.documents.toArray() as Promise<DocumentRecord[]>,
       db.progress.toArray() as Promise<ProgressRecord[]>,
+      db.assets.toArray(),
     ]);
+
+    // Self-heal: rows written before the importState fix are stuck on "saving"
+    // even though their bytes are stored, which disabled Open forever. Readiness
+    // is a fact about whether the bytes exist, so derive it and repair the row.
+    const stored = new Set(assets.filter((a) => a.blob !== undefined && a.blob.size > 0).map((a) => a.documentId));
+    const stale = documents.filter((d) => d.importState !== "ready" && stored.has(d.id));
+    if (stale.length > 0) {
+      await db.documents.bulkPut(stale.map((d) => ({ ...d, importState: "ready" as const })));
+      for (const d of stale) d.importState = "ready";
+    }
+
     setRows(buildLibraryRows(documents, progress));
   }, []);
 
