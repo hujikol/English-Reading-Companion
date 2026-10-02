@@ -18,6 +18,7 @@
   "dependencies": {
     "@firecrawl/pdf-inspector-wasm": "^1.25.2",
     "dexie": "^4.0.10",
+    "fflate": "^0.8.2",
     "pdfjs-dist": "^5.4.149",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"

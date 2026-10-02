@@ -44,6 +44,11 @@ import {
   type ScrollState,
 } from "../ui/reader/readerModel.ts";
 import { anchorFromSelection, pageOfNode, readSelection, type SelectionCapture } from "../ui/reader/selection.ts";
+import { buildSelection } from "../ui/reader/popoverBridge.ts";
+import { SelectionPopover } from "../ui/SelectionPopover.tsx";
+import { lookupSurface } from "../ui/vocab/dictionaryLookup.ts";
+import { dismissPopover, initialPopoverState, openPopover, type PopoverState } from "../ui/vocab/selectionPopover.ts";
+import { trackFStore } from "../features/vocabulary/store.ts";
 import { dbProgressStore, newMarkId, readBookmarks, readMarks, recordDocument, storeMark, touchDocument, writeBookmark } from "../ui/reader/stores.ts";
 import "../ui/reader/reader.css";
 
@@ -561,6 +566,36 @@ export function ReaderScreen() {
     [open, selection, pageText, scrollState],
   );
 
+  // ---- lookup popover -----------------------------------------------------
+  // The reader captured selections but nothing ever opened the lookup card, so
+  // selecting a word produced no lookup at all. This is that join: capture ->
+  // bridge -> popover, and the real local dictionary behind it.
+
+  const [popover, setPopover] = useState<PopoverState>(initialPopoverState);
+
+  const popoverSelection = useMemo(() => {
+    if (!open || !selection) return undefined;
+    const text = pageText.get(selection.pageIndex);
+    // No page text means no prefix/suffix context and no sentence, so the
+    // anchor would be weak. Wait for the text rather than saving a bad anchor.
+    if (text === undefined) return undefined;
+    return buildSelection({
+      capture: selection.capture,
+      pageIndex: selection.pageIndex,
+      pageFraction: 0,
+      pageText: text,
+      documentId: open.documentId,
+      titleSnapshot: open.title,
+    });
+  }, [open, selection, pageText]);
+
+  useEffect(() => {
+    if (popoverSelection === undefined) return;
+    setPopover((current) => (current.open && current.selection?.surface === popoverSelection.surface ? current : openPopover(current, popoverSelection)));
+  }, [popoverSelection]);
+
+  const closePopover = useCallback(() => setPopover((current) => dismissPopover(current)), []);
+
   // ---- render -------------------------------------------------------------
 
   const shownBookmarks = visibleBookmarks(bookmarks);
@@ -732,6 +767,16 @@ export function ReaderScreen() {
           ))}
         </div>
       )}
+
+      {/* The lookup card. This is the product: select a word, learn it. */}
+      <SelectionPopover
+        state={popover}
+        onStateChange={setPopover}
+        lookupSurface={lookupSurface}
+        store={trackFStore}
+        onDismiss={closePopover}
+        packAttribution={null}
+      />
 
       {/* Live region: bookmark and mark outcomes are announced, not just drawn. */}
       <div className="reader__visually-hidden" role="status" aria-live="polite">
