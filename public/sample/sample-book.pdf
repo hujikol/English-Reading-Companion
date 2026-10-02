@@ -1,0 +1,81 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Count 3 /Kids [4 0 R 6 0 R 8 0 R] >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+4 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 5 0 R >>
+endobj
+5 0 obj
+<< /Length 154 >>
+stream
+BT
+/F1 18 Tf
+72 760 Td
+(The Crossing) Tj
+/F1 12 Tf
+0 -28 Td
+(The ferry left the harbour at dawn.) Tj
+0 -28 Td
+(The water was quiet for a long time.) Tj
+ET
+endstream
+endobj
+6 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 7 0 R >>
+endobj
+7 0 obj
+<< /Length 150 >>
+stream
+BT
+/F1 18 Tf
+72 760 Td
+(Rain) Tj
+/F1 12 Tf
+0 -28 Td
+(Rain arrived before the lighthouse.) Tj
+0 -28 Td
+(The wind began to drift across the deck.) Tj
+ET
+endstream
+endobj
+8 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 9 0 R >>
+endobj
+9 0 obj
+<< /Length 151 >>
+stream
+BT
+/F1 18 Tf
+72 760 Td
+(Flat Water) Tj
+/F1 12 Tf
+0 -28 Td
+(By noon the water had gone flat.) Tj
+0 -28 Td
+(She remembered the crossing for years.) Tj
+ET
+endstream
+endobj
+xref
+0 10
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000127 00000 n 
+0000000224 00000 n 
+0000000350 00000 n 
+0000000555 00000 n 
+0000000681 00000 n 
+0000000882 00000 n 
+0000001008 00000 n 
+trailer
+<< /Size 10 /Root 1 0 R >>
+startxref
+1210
+%%EOF

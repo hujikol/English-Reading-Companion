@@ -13,7 +13,9 @@
     "offline:smoke": "vite-node src/pwa/offline-assets.build.ts smoke",
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.json --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "sample:epub": "vite-node scripts/sample/make-sample-epub.ts",
+    "sample:pdf": "vite-node scripts/sample/make-sample-pdf.ts"
   },
   "dependencies": {
     "@firecrawl/pdf-inspector-wasm": "^1.25.2",
