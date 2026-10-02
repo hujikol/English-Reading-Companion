@@ -74,6 +74,62 @@ export type ScrollState = {
 };
 
 /**
+ * Geometry of the page stack, derived rather than measured.
+ *
+ * The pages live in a flex column with a fixed gap and padding, so a page's top
+ * is arithmetic: padding + index * (pageHeight + gap). Measuring each mounted
+ * page with getBoundingClientRect() instead cannot see pages that are outside
+ * the render window, so the reader could never scroll past the window — it read
+ * as blank space, and page tops jumped as pages came and went. This also makes
+ * a scroll frame O(1) instead of O(mounted pages).
+ *
+ * ponytail: assumes every page is the same height, which is what the reader
+ * already assumed (page 0 seeds `baseSize` for all). Mixed-size PDFs will drift
+ * out of step; measure real page sizes if one ever matters.
+ */
+export type StackGeometry = {
+  pageCount: number;
+  /** CSS height of one page box */
+  pageHeight: number;
+  /** gap between pages, matching the CSS */
+  gap: number;
+  /** the scroll container's top padding */
+  padding: number;
+};
+
+export function stackState(geometry: StackGeometry, scrollTop: number): ScrollState {
+  const { pageCount, pageHeight, gap, padding } = geometry;
+  const stride = pageHeight + gap;
+  const tops = new Map<number, number>();
+  const heights = new Map<number, number>();
+  for (let page = 0; page < pageCount; page++) {
+    tops.set(page, padding + page * stride);
+    heights.set(page, pageHeight);
+  }
+  return { scrollTop, tops, heights };
+}
+
+/** The page at the top of the viewport, or the first when scrolled above it. */
+export function visiblePageOfState(state: ScrollState): number {
+  if (state.tops.size === 0) return 0;
+  let best = 0;
+  let bestTop = -Infinity;
+  for (const [page, top] of state.tops) if (top <= state.scrollTop + 1 && top > bestTop) {
+    best = page;
+    bestTop = top;
+  }
+  return best;
+}
+
+/** How far the viewport has scrolled INTO one page, as a 0..1 fraction. */
+export function pageFractionAtState(state: ScrollState, page: number): number {
+  const top = state.tops.get(page);
+  const height = state.heights.get(page);
+  if (top === undefined || height === undefined || height <= 0) return 0;
+  return pageFractionOf(state.scrollTop - top, height);
+}
+
+/**
  * The page at the top of the viewport. Uses page tops, so it is correct whether
  * pages are mounted continuously or the windowing policy left gaps.
  */

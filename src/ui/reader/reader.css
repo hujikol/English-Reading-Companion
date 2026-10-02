@@ -63,6 +63,19 @@
   box-shadow: 0 2px 12px rgb(0 0 0 / 45%);
 }
 
+/*
+ * A page outside the render window. It occupies the page's exact slot so the
+ * scroll height is the real document height: without it the reader could never
+ * scroll past the mounted window, and page tops shifted as pages came and went.
+ * Deliberately invisible — no canvas, no text layer, nothing to select.
+ */
+.reader__spacer {
+  flex: none;
+  width: 100%;
+  visibility: hidden;
+  pointer-events: none;
+}
+
 .reader__page canvas {
   display: block;
   /* The bitmap is pageWidth * deviceScale. Without an explicit CSS size the

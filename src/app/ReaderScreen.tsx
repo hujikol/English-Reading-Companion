@@ -42,6 +42,9 @@ import {
   stepPage,
   visiblePageOf,
   type ScrollState,
+  stackState,
+  visiblePageOfState,
+  pageFractionAtState,
 } from "../ui/reader/readerModel.ts";
 import { anchorFromSelection, pageOfNode, readSelection, type SelectionCapture } from "../ui/reader/selection.ts";
 import { buildSelection } from "../ui/reader/popoverBridge.ts";
@@ -51,6 +54,10 @@ import { dismissPopover, initialPopoverState, openPopover, type PopoverState } f
 import { trackFStore } from "../features/vocabulary/store.ts";
 import { dbProgressStore, newMarkId, readBookmarks, readMarks, recordDocument, storeMark, touchDocument, writeBookmark } from "../ui/reader/stores.ts";
 import "../ui/reader/reader.css";
+
+/** Must match .reader__viewport in reader.css: gap and padding between pages. */
+const STACK_GAP = 16;
+const STACK_PADDING = 16;
 
 /** Same-origin only: a reader has no reason to accept a remote document. */
 const ACCEPTED_MIME = "application/pdf,.pdf";
@@ -127,23 +134,6 @@ export function ReaderScreen({ pendingDocument, onDocumentOpened }: ReaderScreen
   const pageCount = open?.document.capabilities.pageCount ?? 0;
   const tier: DeviceTier = useMemo(() => (typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches ? "phone" : "desktop"), []);
 
-  /** Page tops and heights in CSS px, measured from the mounted page boxes. */
-  const scrollState = useCallback((): ScrollState => {
-    const viewport = viewportRef.current;
-    const heights = new Map<number, number>();
-    const tops = new Map<number, number>();
-    if (viewport === null) return { scrollTop: 0, heights, tops };
-    // Rect maths rather than offsetTop: padding, gaps and zoom all shift the
-    // offsetParent origin, and the fraction must be measured against the same
-    // origin as scrollTop.
-    const originTop = viewport.getBoundingClientRect().top;
-    for (const [page, element] of pageRefs.current) {
-      const rect = element.getBoundingClientRect();
-      heights.set(page, rect.height);
-      tops.set(page, rect.top - originTop + viewport.scrollTop);
-    }
-    return { scrollTop: viewport.scrollTop, heights, tops };
-  }, []);
 
   const plan = useMemo(
     () =>
@@ -162,6 +152,23 @@ export function ReaderScreen({ pendingDocument, onDocumentOpened }: ReaderScreen
     [visiblePage, pageCount, tier, mounted, baseSize, zoom, inflight, tabVisible, selectionPage],
   );
 
+  /**
+   * Page tops and heights in CSS px.
+   *
+   * Derived from the stack layout, not measured per page: only MOUNTED pages
+   * have a DOM box, so measuring could never see past the render window — the
+   * reader could not scroll beyond it, which read as blank space with page tops
+   * jumping as pages mounted and unmounted.
+   */
+  const scrollState = useCallback((): ScrollState => {
+    const viewport = viewportRef.current;
+    if (viewport === null || pageCount === 0) return { scrollTop: 0, heights: new Map(), tops: new Map() };
+    return stackState(
+      { pageCount, pageHeight: plan.cssSize.heightCss, gap: STACK_GAP, padding: STACK_PADDING },
+      viewport.scrollTop,
+    );
+  }, [pageCount, plan.cssSize.heightCss]);
+
   // Cancel what the policy marked superseded (hidden tab, or scrolled away).
   useEffect(() => {
     for (const page of plan.cancel) cancels.current.get(page)?.();
@@ -176,7 +183,7 @@ export function ReaderScreen({ pendingDocument, onDocumentOpened }: ReaderScreen
       if (frame !== 0) return;
       frame = requestAnimationFrame(() => {
         frame = 0;
-        const page = visiblePageOf(scrollState());
+        const page = visiblePageOfState(scrollState());
         setVisiblePage((current) => (current === page ? current : page));
       });
     };
@@ -373,7 +380,7 @@ export function ReaderScreen({ pendingDocument, onDocumentOpened }: ReaderScreen
   useEffect(() => {
     if (open === undefined || pageCount === 0) return;
     const state = scrollState();
-    pendingPosition.current = { locator: locatorAt(visiblePage, pageFractionAt(state, visiblePage)), progression: progressionAt(state, pageCount) };
+    pendingPosition.current = { locator: locatorAt(visiblePage, pageFractionAtState(state, visiblePage)), progression: progressionAt(state, pageCount) };
     void flushProgress(lastWritten.current === undefined ? "page-change" : "move");
   }, [visiblePage, zoom, pageCount, open, mounted, scrollState, flushProgress]);
 
@@ -487,7 +494,7 @@ export function ReaderScreen({ pendingDocument, onDocumentOpened }: ReaderScreen
     setSelectionPage(pageIndex);
   }, []);
 
-  const currentLocator = useMemo((): Locator => locatorAt(visiblePage, pageFractionAt(scrollState(), visiblePage)), [visiblePage, mounted, scrollState]);
+  const currentLocator = useMemo((): Locator => locatorAt(visiblePage, pageFractionAtState(scrollState(), visiblePage)), [visiblePage, mounted, scrollState]);
   const bookmarkedHere = useMemo(() => hasBookmarkAt(bookmarks, currentLocator), [bookmarks, currentLocator]);
 
   // ---- bookmarks ----------------------------------------------------------
@@ -561,7 +568,7 @@ export function ReaderScreen({ pendingDocument, onDocumentOpened }: ReaderScreen
       }
       const anchor = anchorFromSelection(selection.capture, {
         pageIndex: selection.pageIndex,
-        pageFraction: pageFractionAt(scrollState(), selection.pageIndex),
+        pageFraction: pageFractionAtState(scrollState(), selection.pageIndex),
         pageText: text,
         now: Date.now(),
       });
@@ -615,6 +622,7 @@ export function ReaderScreen({ pendingDocument, onDocumentOpened }: ReaderScreen
   }, [popoverSelection]);
 
   const closePopover = useCallback(() => setPopover((current) => dismissPopover(current)), []);
+
 
   // ---- render -------------------------------------------------------------
 
@@ -722,27 +730,45 @@ export function ReaderScreen({ pendingDocument, onDocumentOpened }: ReaderScreen
         ) : null}
 
         {open === undefined
-          ? null
-          : plan.keep.map((pageIndex) => (
-              <PdfPage
-                key={pageIndex}
-                  pageIndex={pageIndex}
-                  widthCss={plan.cssSize.widthCss}
-                  heightCss={plan.cssSize.heightCss}
-                  scale={plan.scale}
-                  getPage={getPage}
-                  marks={marks}
-                  pageText={pageText.get(pageIndex)}
-                registerCancel={(index, cancel) => {
-                  if (cancel === undefined) cancels.current.delete(index);
-                  else cancels.current.set(index, cancel);
-                }}
-                registerPageBox={registerPageBox}
-                reportPixelSize={reportPixelSize}
-                onTextLayerReady={onTextLayerReady}
-                onRelease={onRelease}
-              />
-            ))}
+                  ? null
+                  : // Every page gets a slot. Pages outside the render window render as
+                    // a spacer of the same height, so the scroll height is the real
+                    // document height and scrolling is continuous instead of collapsing
+                    // as pages unmount.
+                    Array.from({ length: pageCount }, (_, pageIndex) => {
+                      const mounted = plan.keep.includes(pageIndex);
+                      if (!mounted) {
+                        return (
+                          <div
+                            key={pageIndex}
+                            className="reader__spacer"
+                            aria-hidden="true"
+                            data-page={pageIndex}
+                            style={{ height: plan.cssSize.heightCss }}
+                          />
+                        );
+                      }
+                      return (
+                        <PdfPage
+                          key={pageIndex}
+                          pageIndex={pageIndex}
+                          widthCss={plan.cssSize.widthCss}
+                          heightCss={plan.cssSize.heightCss}
+                          scale={plan.scale}
+                          getPage={getPage}
+                          marks={marks}
+                          pageText={pageText.get(pageIndex)}
+                          registerCancel={(index, cancel) => {
+                            if (cancel === undefined) cancels.current.delete(index);
+                            else cancels.current.set(index, cancel);
+                          }}
+                          registerPageBox={registerPageBox}
+                          reportPixelSize={reportPixelSize}
+                          onTextLayerReady={onTextLayerReady}
+                          onRelease={onRelease}
+                        />
+                      );
+                    })}
       </div>
 
       {shownBookmarks.length > 0 || pendingBookmark !== undefined ? (
