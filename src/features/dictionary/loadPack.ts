@@ -26,21 +26,17 @@ export type LoadState =
 let inFlight: Promise<LoadState> | null = null;
 
 /**
- * Decode one gzipped chunk.
+ * Fetch one chunk as it is stored on the wire: the RAW gzipped bytes.
  *
- * `DecompressionStream` is native in every browser this app targets, so no
- * compression library is needed here. The pack builder already emitted raw
- * deflate via fflate; `DecompressionStream("gzip")` reads that directly.
+ * installPack's decodeRows gunzips whatever this returns, so decompressing here
+ * too double-inflates and the install aborts. That failure was silent — the
+ * lookup then reported "no dictionary installed" with no reason shown, because
+ * the error was swallowed into a plain miss.
  */
 async function fetchChunk(file: string): Promise<Uint8Array> {
   const response = await fetch(`${BASE}/${file}`, { cache: "force-cache" });
   if (!response.ok) throw new Error(`chunk ${file}: HTTP ${response.status}`);
-  const stream = response.body;
-  if (stream === null) throw new Error(`chunk ${file}: no body`);
-
-  const decompressed = stream.pipeThrough(new DecompressionStream("gzip"));
-  const bytes = new Uint8Array(await new Response(decompressed).arrayBuffer());
-  return bytes;
+  return new Uint8Array(await response.arrayBuffer());
 }
 
 /** Idempotent: a second call while one is in flight returns the same promise. */

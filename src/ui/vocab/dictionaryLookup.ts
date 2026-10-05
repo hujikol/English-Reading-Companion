@@ -23,11 +23,40 @@ import type { Lookup } from "../vocab/selectionPopover.ts";
 const MAX_CANDIDATES = 5;
 
 export async function lookupSurface(surface: string): Promise<Lookup> {
-  const first = await dictionaryLookup({ db: dictDb, surface, maxCandidates: MAX_CANDIDATES });
-  if (first.found || first.reason !== "no-active-pack") return first;
+  let first = await dictionaryLookup({ db: dictDb, surface, maxCandidates: MAX_CANDIDATES });
+  if (first.found) return first;
+  if (first.reason !== "no-active-pack") return first;
+  if (first.candidates.length > 0) return first;
 
   // No pack yet: install the shipped one, then try once more.
   const state = await loadDictionary();
-  if (state.kind !== "ready") return first;
-  return dictionaryLookup({ db: dictDb, surface, maxCandidates: MAX_CANDIDATES });
+  if (state.kind === "absent") {
+    // Surface WHY. Reporting a plain miss here hid a broken install behind
+    // "No dictionary installed yet", which is indistinguishable from a user who
+    // simply has no pack.
+    throw new Error(`Dictionary pack could not be installed: ${state.reason}`);
+  }
+
+  first = await dictionaryLookup({ db: dictDb, surface, maxCandidates: MAX_CANDIDATES });
+  if (first.found || first.candidates.length > 0) return first;
+
+  // A selection crossing a line boundary arrives as a fragment plus real words
+  // — "s, too vulnerable". The phrase is in no dictionary, so a whole-phrase
+  // lookup always misses and the learner learns nothing.
+  //
+  // A fragment cannot be detected from its own text ("s," looks like a valid
+  // token), so this is not a guess about the string: try the words longest
+  // first, since the longest is almost always the content word.
+  const words = surface
+    .split(/\s+/)
+    .map((w) => w.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, ""))
+    .filter((w) => w.length >= 3)
+    .sort((a, b) => b.length - a.length)
+    .slice(0, 4);
+
+  for (const word of words) {
+    const hit = await dictionaryLookup({ db: dictDb, surface: word, maxCandidates: MAX_CANDIDATES });
+    if (hit.found || hit.candidates.length > 0) return hit;
+  }
+  return first;
 }
