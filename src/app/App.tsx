@@ -70,23 +70,20 @@ export function App() {
           ))}
         </ul>
       </nav>
-      <div className="flex min-h-0 flex-1 flex-col">
+      {/* ONE panel at a time. Rendering all four and hiding three with `flex-1`
+          left the invisible ones claiming height, which is why the header
+          whitespace grew from Reader to Vocabulary to Review. */}
+      <main className="min-h-0 flex-1 overflow-y-auto">
         {tab === "library" && <LibraryScreen onOpenDocument={openInReader} />}
-      </div>
-      <div className="flex min-h-0 flex-1 flex-col">
         {tab === "reader" &&
           (pendingEpub === undefined ? (
             <ReaderScreen pendingDocument={pendingDocument} pendingRecord={pendingRecord} />
           ) : (
             <EpubScreen key={pendingEpub.name} bytes={pendingEpub.bytes} fileName={pendingEpub.name} />
           ))}
-      </div>
-      <div className="min-h-0 flex-1 overflow-y-auto">
         {tab === "vocabulary" && <VocabularyScreen />}
-      </div>
-      <div className="min-h-0 flex-1 overflow-y-auto">
         {tab === "review" && <ReviewScreen />}
-      </div>
+      </main>
     </div>
   );
 }

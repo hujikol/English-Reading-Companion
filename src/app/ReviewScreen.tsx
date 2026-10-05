@@ -85,7 +85,7 @@ export function ReviewScreen() {
   const done = session !== null && isSessionComplete(session);
 
   return (
-    <section aria-labelledby={headingId} className="mx-auto w-full max-w-2xl px-4 py-6 sm:px-6 sm:py-8">
+    <section aria-labelledby={headingId} className="mx-auto w-full max-w-2xl px-4 py-4 sm:px-6 sm:py-6">
       <header>
         <h1 id={headingId} className="text-2xl font-semibold tracking-tight text-ink">
           Review

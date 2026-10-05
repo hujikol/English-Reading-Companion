@@ -76,7 +76,7 @@ export function VocabularyScreen() {
   );
 
   return (
-    <section aria-labelledby={headingId} className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6 sm:py-8">
+    <section aria-labelledby={headingId} className="mx-auto w-full max-w-3xl px-4 py-4 sm:px-6 sm:py-6">
       <header>
         <h1 id={headingId} className="text-2xl font-semibold tracking-tight text-ink">
           Vocabulary

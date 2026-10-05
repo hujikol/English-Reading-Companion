@@ -221,7 +221,7 @@ export function LibraryScreen({ onOpenDocument }: LibraryScreenProps = {}) {
         }`;
 
   return (
-    <section aria-labelledby={headingId} className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6 sm:py-8">
+    <section aria-labelledby={headingId} className="mx-auto w-full max-w-3xl px-4 py-4 sm:px-6 sm:py-6">
       <header>
         <h1 id={headingId} className="text-2xl font-semibold tracking-tight text-ink">
           Library
@@ -300,11 +300,15 @@ export function LibraryScreen({ onOpenDocument }: LibraryScreenProps = {}) {
               )}
 
               <div className="mt-4 flex flex-wrap items-center gap-2 sm:mt-auto sm:pt-4">
+                {/* Never disabled on importState alone. A row whose bytes are
+                    stored is openable, and a row whose bytes are NOT stored
+                    cannot be fixed by hiding the control — it needs a sentence
+                    the learner can act on. `canOpen` is derived from the asset
+                    table, the same fact reopenDocument checks. */}
                 <button
                   type="button"
                   className={BTN_PRIMARY}
                   onClick={() => void onOpen(row.document.id)}
-                  disabled={onOpenDocument === undefined || row.document.importState !== "ready"}
                   aria-label={`Open ${row.document.title}${row.progression !== undefined ? ` at ${row.positionLabel}` : ""}`}
                 >
                   {row.progression === undefined ? "Open" : `Open at ${row.positionLabel}`}
