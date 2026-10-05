@@ -25,6 +25,8 @@ export type ReaderLayoutState = {
   inflight: readonly number[];
   /** page holding the live selection; pinned until the selection ends */
   selectionPage?: number | undefined;
+  /** direction of travel; biases the window so scrolling stays continuous */
+  scrollDirection?: -1 | 0 | 1 | undefined;
   tabVisible: boolean;
   budgetBytes?: number | undefined;
 };
