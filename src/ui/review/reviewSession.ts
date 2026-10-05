@@ -7,6 +7,7 @@
  * the UI state around it — reveal, session progress, and honest write outcomes.
  */
 
+import type { AppDB } from "../../../src/db/index.ts";
 import type { ReviewGrade } from "../../contracts/index.ts";
 import {
   applyGrade,
@@ -17,7 +18,6 @@ import {
   type Queue,
   type QueueItem,
 } from "../../features/review/queue.ts";
-import type { Store } from "../../features/vocabulary/store.ts";
 
 export type ReviewSession = {
   queue: Queue;
@@ -38,7 +38,7 @@ export type GradeOutcome =
   | { kind: "recorded"; grade: ReviewGrade; vocabularyId: string; returnedToQueue: boolean; duplicate: boolean }
   | { kind: "failed"; grade: ReviewGrade; vocabularyId: string; message: string };
 
-export async function startSession(store: Store, sessionSize?: number): Promise<ReviewSession> {
+export async function startSession(store: AppDB, sessionSize?: number): Promise<ReviewSession> {
   const size = sessionSize ?? (await getDailySessionSize(store));
   const queue = await buildQueue(store, size);
   return { queue, index: 0, revealed: false, done: 0, repeats: 0, pending: false, error: null, lastOutcome: null, sessionSize: size };
@@ -54,7 +54,7 @@ export const hideAnswer = (s: ReviewSession): ReviewSession => ({ ...s, revealed
 export type SessionSizeOutcome = { kind: "saved"; size: number } | { kind: "failed"; message: string };
 
 /** `setDailySessionSize` throws RangeError outside 1..200; the UI must show that, not a crash. */
-export async function changeSessionSize(store: Store, raw: number): Promise<SessionSizeOutcome> {
+export async function changeSessionSize(store: AppDB, raw: number): Promise<SessionSizeOutcome> {
   const size = Math.trunc(raw);
   if (!Number.isFinite(size) || size < 1 || size > 200) return { kind: "failed", message: "Choose between 1 and 200 words per session." };
   try {
@@ -83,7 +83,7 @@ export function canGrade(s: ReviewSession): boolean {
  * keep practising it. Known suspends it and it leaves the session.
  */
 export async function gradeCurrent(
-  store: Store,
+  store: AppDB,
   session: ReviewSession,
   grade: ReviewGrade,
   now: number = Date.now(),

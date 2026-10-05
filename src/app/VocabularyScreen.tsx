@@ -10,7 +10,6 @@
 import { useCallback, useEffect, useId, useState } from "react";
 
 import { db } from "../db/index.ts";
-import { trackFStore } from "../features/vocabulary/store.ts";
 import {
   announceEdit,
   loadVocabulary,
@@ -57,7 +56,7 @@ export function VocabularyScreen() {
   const refresh = useCallback(
     async (q: string, s: "all" | "learning" | "known") => {
       const titles = new Set((await db.documents.toArray()).map((d) => d.id));
-      setPage(await loadVocabulary(trackFStore, { query: q, status: s }, titles));
+      setPage(await loadVocabulary(db, { query: q, status: s }, titles));
     },
     [],
   );
@@ -68,7 +67,7 @@ export function VocabularyScreen() {
 
   const onSave = useCallback(
     async (row: VocabularyRow, meaning: string) => {
-      const outcome = await saveMeaning(trackFStore, row.vocabulary.id, meaning);
+      const outcome = await saveMeaning(db, row.vocabulary.id, meaning);
       setAnnouncement(announceEdit(row.vocabulary.surface, outcome));
       await refresh(query, status);
     },

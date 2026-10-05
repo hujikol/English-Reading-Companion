@@ -1,6 +1,5 @@
 import type { ReviewGrade, Vocabulary } from "../../contracts/index.ts";
-import type { ReviewCard, ReviewEvent } from "../../db/index.ts";
-import type { Store } from "../vocabulary/store.ts";
+import type { AppDB, ReviewCard, ReviewEvent } from "../../db/index.ts";
 
 /** v0.1 queue shape only. No ladder, no SRS — Section 11 "Basic review in v0.1". */
 export const DAILY_SESSION_DEFAULT = 20;
@@ -25,13 +24,13 @@ const learningGrades: ReadonlySet<ReviewGrade> = new Set<ReviewGrade>(["again", 
 /** Learning keeps the card in the queue; Known is the explicit suspension choice. */
 export const gradeKeepsCardQueued = (grade: ReviewGrade): boolean => learningGrades.has(grade);
 
-export async function getDailySessionSize(store: Store, fallback = DAILY_SESSION_DEFAULT): Promise<number> {
+export async function getDailySessionSize(store: AppDB, fallback = DAILY_SESSION_DEFAULT): Promise<number> {
   const row = (await store.settings.get(SETTING_DAILY_SESSION_SIZE)) as { key: string; value: unknown } | undefined;
   const n = typeof row?.value === "number" ? Math.trunc(row.value) : fallback;
   return n >= 1 && n <= 200 ? n : fallback;
 }
 
-export async function setDailySessionSize(store: Store, size: number): Promise<void> {
+export async function setDailySessionSize(store: AppDB, size: number): Promise<void> {
   if (!Number.isInteger(size) || size < 1 || size > 200) throw new RangeError("daily session size must be 1..200");
   await store.settings.put({ key: SETTING_DAILY_SESSION_SIZE, value: size, schemaVersion: 1 });
 }
@@ -41,7 +40,7 @@ export async function setDailySessionSize(store: Store, size: number): Promise<v
  * cards therefore come first, which is what a learner opening a fresh session
  * expects. Suspended (Known) cards are excluded, not reordered.
  */
-export async function buildQueue(store: Store, sessionSize?: number, now = Date.now()): Promise<Queue> {
+export async function buildQueue(store: AppDB, sessionSize?: number, now = Date.now()): Promise<Queue> {
   const size = sessionSize ?? (await getDailySessionSize(store));
   const cards = (await store.reviewCards.toArray()) as ReviewCard[];
   const words = (await store.vocabulary.toArray()) as Vocabulary[];
@@ -75,7 +74,7 @@ export async function buildQueue(store: Store, sessionSize?: number, now = Date.
  * event. Card state and its event are written in one transaction.
  */
 export async function applyGrade(
-  store: Store,
+  store: AppDB,
   vocabularyId: string,
   grade: ReviewGrade,
   eventId: string,
@@ -143,7 +142,7 @@ export async function stateFromEvents(events: readonly ReviewEvent[], vocabulary
   };
 }
 
-export async function eventsFor(store: Store, vocabularyId: string): Promise<ReviewEvent[]> {
+export async function eventsFor(store: AppDB, vocabularyId: string): Promise<ReviewEvent[]> {
   return ((await store.reviewEvents.filter((e) => (e as ReviewEvent).cardId === vocabularyId).toArray()) as ReviewEvent[])
     .sort((a, b) => a.reviewedAt - b.reviewedAt);
 }

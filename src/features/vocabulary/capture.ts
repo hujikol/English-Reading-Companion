@@ -1,5 +1,5 @@
 import type { Anchor, Explanation, LearningExplanation, Occurrence, Provenance, Vocabulary } from "../../contracts/index.ts";
-import type { Store } from "./store.ts";
+import type { AppDB } from "../../db/index.ts";
 
 /** Same term + same chosen meaning is the same sense; anything else is a new one. */
 export type CaptureResult =
@@ -52,7 +52,7 @@ export function explanationTextOf(result: LearningExplanation): string {
  * senses stay distinct. `explanationText` is written once, here.
  */
 export async function capture(
-  store: Store,
+  store: AppDB,
   input: CaptureInput,
   opts: { now?: number; forceSeparate?: boolean } = {},
 ): Promise<CaptureResult> {
@@ -125,7 +125,7 @@ export async function capture(
  * Edit the user's current meaning. `explanationText` is never written here, so
  * the original generated explanation survives any number of edits.
  */
-export async function editMeaning(store: Store, vocabularyId: string, meaning: string, opts: { now?: number } = {}): Promise<Vocabulary> {
+export async function editMeaning(store: AppDB, vocabularyId: string, meaning: string, opts: { now?: number } = {}): Promise<Vocabulary> {
   const now = opts.now ?? Date.now();
   const current = (await store.vocabulary.get(vocabularyId)) as Vocabulary | undefined;
   if (!current) throw new Error(`editMeaning: unknown vocabulary ${vocabularyId}`);
@@ -143,7 +143,7 @@ export async function editMeaning(store: Store, vocabularyId: string, meaning: s
   return next;
 }
 
-export async function setNote(store: Store, vocabularyId: string, note: string, opts: { now?: number } = {}): Promise<Vocabulary> {
+export async function setNote(store: AppDB, vocabularyId: string, note: string, opts: { now?: number } = {}): Promise<Vocabulary> {
   const now = opts.now ?? Date.now();
   const current = (await store.vocabulary.get(vocabularyId)) as Vocabulary | undefined;
   if (!current) throw new Error(`setNote: unknown vocabulary ${vocabularyId}`);
@@ -153,13 +153,13 @@ export async function setNote(store: Store, vocabularyId: string, note: string, 
 }
 
 /** The same sense already saved, so a UI can offer "attach another example". */
-export async function findSameSense(store: Store, surface: string, meaning: string): Promise<Vocabulary | undefined> {
+export async function findSameSense(store: AppDB, surface: string, meaning: string): Promise<Vocabulary | undefined> {
   const normalizedForm = normalizeForm(surface);
   const rows = (await store.vocabulary.filter((v) => (v as Vocabulary).normalizedForm === normalizedForm).toArray()) as Vocabulary[];
   return rows.find((v) => senseKey(v.meaning) === senseKey(meaning));
 }
 
-export async function listVocabulary(store: Store, includeDeleted = false): Promise<Vocabulary[]> {
+export async function listVocabulary(store: AppDB, includeDeleted = false): Promise<Vocabulary[]> {
   const rows = (await store.vocabulary.toArray()) as Vocabulary[];
   return rows.filter((v) => includeDeleted || v.status !== "suspended").sort((a, b) => b.updatedAt - a.updatedAt);
 }
@@ -168,7 +168,7 @@ export async function listVocabulary(store: Store, includeDeleted = false): Prom
  * Explicit user removal only. The durable explanation history is never deleted
  * with the word, and no caller of this function exists on a quota path.
  */
-export async function deleteVocabulary(store: Store, vocabularyId: string): Promise<void> {
+export async function deleteVocabulary(store: AppDB, vocabularyId: string): Promise<void> {
   const occurrences = (await store.occurrences.filter((o) => (o as Occurrence).vocabularyId === vocabularyId).toArray()) as Occurrence[];
   await store.transaction("rw", [store.vocabulary, store.occurrences, store.reviewCards], async () => {
     await store.occurrences.bulkDelete(occurrences.map((o) => o.id));
@@ -177,6 +177,9 @@ export async function deleteVocabulary(store: Store, vocabularyId: string): Prom
   });
 }
 
-export async function occurrencesOf(store: Store, vocabularyId: string): Promise<Occurrence[]> {
+export async function occurrencesOf(store: AppDB, vocabularyId: string): Promise<Occurrence[]> {
+  // No ordering is promised: `Occurrence` records no timestamp, and the random
+  // id gives no useful sort key. Callers that need "first seen" must add a
+  // createdAt to the record rather than rely on table order.
   return (await store.occurrences.filter((o) => (o as Occurrence).vocabularyId === vocabularyId).toArray()) as Occurrence[];
 }

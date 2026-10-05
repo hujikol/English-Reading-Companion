@@ -1,3 +1,5 @@
+import type { AppDB } from "../../src/db/index.ts";
+import { isolatedDb } from "../faults.ts";
 import { describe, expect, it } from "vitest";
 import type { Anchor, Bookmark, Explanation, LearningExplanation, Mark } from "../../src/contracts/index.ts";
 import type { ReviewEvent } from "../../src/db/index.ts";
@@ -13,7 +15,6 @@ import {
 } from "../../src/features/settings/backup/backup.ts";
 import { applyGrade, setDailySessionSize } from "../../src/features/review/queue.ts";
 import { capture, editMeaning } from "../../src/features/vocabulary/capture.ts";
-import { memStore } from "../vocabulary/memStore.ts";
 
 const anchor = (quote: string, state: Anchor["anchorState"] = "resolved"): Anchor => ({
   quote,
@@ -47,7 +48,7 @@ const explanation = (): Omit<Explanation, "surface" | "createdAt"> => ({
  * row the user edited away from its generated explanation, and a source that no
  * longer exists locally.
  */
-async function fullProfile(store: ReturnType<typeof memStore>) {
+async function fullProfile(store: AppDB) {
   const saved = await capture(
     store,
     {
@@ -123,7 +124,7 @@ async function fullProfile(store: ReturnType<typeof memStore>) {
 
 describe("export", () => {
   it("covers every required user-data category and declares itself unencrypted", async () => {
-    const store = memStore();
+    const store = isolatedDb(`backup-${++seq}`);
     await fullProfile(store);
     const file = await exportBackup(store, 9_000);
 
@@ -150,7 +151,7 @@ describe("export", () => {
   });
 
   it("excludes API keys and replaceable derived caches", async () => {
-    const store = memStore();
+    const store = isolatedDb(`backup-${++seq}`);
     await fullProfile(store);
     const raw = JSON.stringify(await exportBackup(store));
 
@@ -163,7 +164,7 @@ describe("export", () => {
   });
 
   it("is stable across exports of unchanged data", async () => {
-    const store = memStore();
+    const store = isolatedDb(`backup-${++seq}`);
     await fullProfile(store);
     const a = await exportBackup(store, 1);
     const b = await exportBackup(store, 2);
@@ -175,11 +176,11 @@ const file = (raw: string): Record<string, unknown> => JSON.parse(raw) as Record
 
 describe("round trip into a fresh profile", () => {
   it("restores every row, verbatim, including edits, anchors and unavailable sources", async () => {
-    const source = memStore();
+    const source = isolatedDb(`backup-${++seq}`);
     const { edited } = await fullProfile(source);
     const raw = JSON.stringify(await exportBackup(source, 9_000));
 
-    const fresh = memStore();
+    const fresh = isolatedDb(`backup-${++seq}`);
     expect(await fresh.vocabulary.count()).toBe(0);
     const result = await restoreBackup(fresh, raw);
 
@@ -210,11 +211,11 @@ describe("round trip into a fresh profile", () => {
   });
 
   it("restores into a second profile without re-running any sibling UI", async () => {
-    const source = memStore();
+    const source = isolatedDb(`backup-${++seq}`);
     await fullProfile(source);
     const raw = JSON.stringify(await exportBackup(source));
-    const a = memStore();
-    const b = memStore();
+    const a = isolatedDb(`backup-${++seq}`);
+    const b = isolatedDb(`backup-${++seq}`);
     await restoreBackup(a, raw);
     await restoreBackup(b, raw);
     expect(await a.vocabulary.toArray()).toEqual(await b.vocabulary.toArray());
@@ -223,12 +224,12 @@ describe("round trip into a fresh profile", () => {
 
 describe("merge behaviour", () => {
   it("preserves a local edit made after the export", async () => {
-    const source = memStore();
+    const source = isolatedDb(`backup-${++seq}`);
     const { saved } = await fullProfile(source);
     const raw = JSON.stringify(await exportBackup(source));
 
     // the same profile keeps working and the learner changes the meaning again
-    const local = memStore();
+    const local = isolatedDb(`backup-${++seq}`);
     await restoreBackup(local, raw);
     await editMeaning(local, saved.vocabulary.id, "arti lokal", { now: 20_000 });
 
@@ -241,11 +242,11 @@ describe("merge behaviour", () => {
   });
 
   it("previews added, preserved and conflicting rows before writing", async () => {
-    const source = memStore();
+    const source = isolatedDb(`backup-${++seq}`);
     await fullProfile(source);
     const raw = JSON.stringify(await exportBackup(source));
 
-    const local = memStore();
+    const local = isolatedDb(`backup-${++seq}`);
     await restoreBackup(local, raw);
     await local.bookmarks.put({ id: "bm-3", documentId: "d", titleSnapshot: "t", locator: { kind: "text", blockId: "b", start: 0, end: 1 }, label: "new", createdAt: 1, updatedAt: 1 } satisfies Bookmark);
 
@@ -258,7 +259,7 @@ describe("merge behaviour", () => {
     expect(preview.notice).toBe(UNENCRYPTED_WARNING);
 
     // now a genuine conflict: same id, different content
-    const conflicted = memStore();
+    const conflicted = isolatedDb(`backup-${++seq}`);
     await restoreBackup(conflicted, raw);
     await conflicted.bookmarks.put({ id: "bm-1", documentId: "gone-doc", titleSnapshot: "Renamed locally", locator: { kind: "pdf", pageIndex: 2, pageFraction: 0.1 }, label: "Bagian 1", createdAt: 10, updatedAt: 999 } satisfies Bookmark);
     const preview2 = await previewRestore(conflicted, JSON.parse(raw) as never);
@@ -267,10 +268,10 @@ describe("merge behaviour", () => {
   });
 
   it("replace mode clears local rows first", async () => {
-    const source = memStore();
+    const source = isolatedDb(`backup-${++seq}`);
     await fullProfile(source);
     const raw = JSON.stringify(await exportBackup(source));
-    const local = memStore();
+    const local = isolatedDb(`backup-${++seq}`);
     await local.vocabulary.put({ id: "stale", surface: "stale", normalizedForm: "stale", meaning: "lama", status: "learning", provenance: { kind: "manual", createdAt: 1, userEdited: false }, createdAt: 1, updatedAt: 1 });
 
     await restoreBackup(local, raw, { mode: "replace" });
@@ -279,15 +280,17 @@ describe("merge behaviour", () => {
   });
 });
 
+let seq = 0;
+
 describe("hostile and oversized input", () => {
   const good = async (): Promise<string> => {
-    const store = memStore();
+    const store = isolatedDb(`backup-${++seq}`);
     await fullProfile(store);
     return JSON.stringify(await exportBackup(store));
   };
 
   it("rejects oversized input before any write", async () => {
-    const store = memStore();
+    const store = isolatedDb(`backup-${++seq}`);
     const raw = await good();
     const huge = `${"x".repeat(LIMITS.maxBytes + 1)}${raw}`;
     await expect(restoreBackup(store, huge)).rejects.toThrow(/too large/);
@@ -296,7 +299,7 @@ describe("hostile and oversized input", () => {
   });
 
   it("rejects excessive nesting before any write", async () => {
-    const store = memStore();
+    const store = isolatedDb(`backup-${++seq}`);
     let nested: unknown = "deep";
     for (let i = 0; i < LIMITS.maxDepth + 4; i++) nested = { [`level${i}`]: nested };
     const base = JSON.parse(await good()) as { data: Record<string, unknown> };
@@ -308,7 +311,7 @@ describe("hostile and oversized input", () => {
   });
 
   it("rejects unsafe keys", async () => {
-    const store = memStore();
+    const store = isolatedDb(`backup-${++seq}`);
     const payload = JSON.parse(await good()) as { data: { vocabulary: unknown[] } };
     payload.data.vocabulary = [JSON.parse('{"__proto__": {"admin": true}, "id": "evil", "surface": "x", "normalizedForm": "x", "meaning": "x", "status": "learning", "provenance": {"kind":"manual","createdAt":1,"userEdited":false}, "createdAt": 1, "updatedAt": 1}')];
     await expect(restoreBackup(store, JSON.stringify(payload))).rejects.toThrow(/unsafe key/);
@@ -317,7 +320,7 @@ describe("hostile and oversized input", () => {
   });
 
   it("rejects a row without a primary key", async () => {
-    const store = memStore();
+    const store = isolatedDb(`backup-${++seq}`);
     const payload = JSON.parse(await good()) as { data: { marks: unknown[] } };
     payload.data.marks = [{ documentId: "d", titleSnapshot: "t", anchor: anchor("q"), color: "red", createdAt: 1 }];
     await expect(restoreBackup(store, JSON.stringify(payload))).rejects.toThrow(/missing string primary key/);
@@ -325,7 +328,7 @@ describe("hostile and oversized input", () => {
   });
 
   it("rejects a tampered row through the checksum", async () => {
-    const store = memStore();
+    const store = isolatedDb(`backup-${++seq}`);
     const payload = JSON.parse(await good()) as { data: { vocabulary: { id: string; meaning: string }[] } };
     payload.data.vocabulary[0]!.meaning = "diteruskan";
     await expect(restoreBackup(store, JSON.stringify(payload))).rejects.toThrow(/checksum mismatch in vocabulary/);
@@ -333,7 +336,7 @@ describe("hostile and oversized input", () => {
   });
 
   it("refuses a newer format instead of clearing anything", async () => {
-    const store = memStore();
+    const store = isolatedDb(`backup-${++seq}`);
     const payload = JSON.parse(await good()) as { formatVersion: number };
     payload.formatVersion = BACKUP_FORMAT_VERSION + 1;
     await expect(restoreBackup(store, JSON.stringify(payload))).rejects.toThrow(/newer than this build/);
@@ -341,7 +344,7 @@ describe("hostile and oversized input", () => {
   });
 
   it("rejects malformed JSON, a foreign format and a missing section", async () => {
-    const store = memStore();
+    const store = isolatedDb(`backup-${++seq}`);
     await expect(restoreBackup(store, "{not json")).rejects.toThrow(/not valid JSON/);
 
     const foreign = JSON.parse(await good()) as Record<string, unknown>;
@@ -355,7 +358,7 @@ describe("hostile and oversized input", () => {
   });
 
   it("rejects unknown sections so a hostile file cannot smuggle tables in", async () => {
-    const store = memStore();
+    const store = isolatedDb(`backup-${++seq}`);
     const payload = JSON.parse(await good()) as { data: Record<string, unknown> };
     payload.data.hiddenTable = [{ id: "x" }];
     await expect(restoreBackup(store, JSON.stringify(payload))).rejects.toThrow(/unknown section/);

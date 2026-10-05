@@ -1,6 +1,6 @@
 import type { Bookmark, Explanation, Mark, Occurrence, Vocabulary } from "../../../contracts/index.ts";
-import type { ReviewCard, ReviewEvent } from "../../../db/index.ts";
-import type { Store, TableLike } from "../../vocabulary/store.ts";
+import type { Table } from "dexie";
+import type { AppDB, ReviewCard, ReviewEvent } from "../../../db/index.ts";
 
 export const BACKUP_FORMAT = "erc.learning-backup";
 export const BACKUP_FORMAT_VERSION = 1;
@@ -8,7 +8,7 @@ export const BACKUP_FORMAT_VERSION = 1;
 /** Shown on export and before every import. Unencrypted by design at v0.1. */
 export const UNENCRYPTED_WARNING =
   "This file is NOT encrypted. It contains your reading history, source excerpts and personal notes. " +
-  "Store it somewhere private.";
+  "AppDB it somewhere private.";
 
 /** ponytail: caps chosen from a decade of daily use, not from measurement. Raise when a real learner trips them. */
 export const LIMITS = { maxBytes: 64 * 1024 * 1024, maxDepth: 12, maxRowsPerSection: 200_000 } as const;
@@ -76,7 +76,7 @@ async function sha256(text: string): Promise<string> {
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-export async function exportBackup(store: Store, now = Date.now()): Promise<BackupFile> {
+export async function exportBackup(store: AppDB, now = Date.now()): Promise<BackupFile> {
   const settings = (await store.settings.toArray()) as { key: string; value: unknown; schemaVersion: number }[];
   const data = {
     bookmarks: (await store.bookmarks.toArray()) as Bookmark[],
@@ -174,7 +174,7 @@ export async function verifyChecksums(file: BackupFile): Promise<void> {
  * resolved: under merge the local row is preserved because it may hold edits
  * this file predates.
  */
-export async function previewRestore(store: Store, file: BackupFile): Promise<RestorePreview> {
+export async function previewRestore(store: AppDB, file: BackupFile): Promise<RestorePreview> {
   const added: Record<string, number> = {};
   const preservedEdits: Record<string, number> = {};
   const conflicts: Record<string, number> = {};
@@ -215,7 +215,7 @@ export async function previewRestore(store: Store, file: BackupFile): Promise<Re
   };
 }
 
-function tableFor(store: Store, name: Section | "settings"): TableLike<unknown> {
+function tableFor(store: AppDB, name: Section | "settings"): Table<unknown, string> {
   return name === "settings" ? store.settings : store[name];
 }
 
@@ -228,7 +228,7 @@ function tableFor(store: Store, name: Section | "settings"): TableLike<unknown> 
  * nothing is re-derived from originals that may no longer exist.
  */
 export async function restoreBackup(
-  store: Store,
+  store: AppDB,
   raw: string,
   opts: { mode?: "merge" | "replace" } = {},
 ): Promise<{ added: Record<string, number>; preservedEdits: Record<string, number>; restored: number }> {

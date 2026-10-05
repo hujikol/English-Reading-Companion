@@ -6,11 +6,11 @@
  * the focus, so the learner can retry without losing their place.
  */
 
+import { db } from "../db/index.ts";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 
 import type { ReviewGrade } from "../contracts/index.ts";
 import { getDailySessionSize } from "../features/review/queue.ts";
-import { trackFStore } from "../features/vocabulary/store.ts";
 import {
   announceGrade,
   announceSessionSize,
@@ -50,13 +50,13 @@ export function ReviewScreen() {
   const headingRef = useRef<HTMLHeadingElement | null>(null);
 
   const begin = useCallback(async () => {
-    setSession(await startSession(trackFStore));
+    setSession(await startSession(db));
     setAnnouncement("");
   }, []);
 
   useEffect(() => {
     void (async () => {
-      setSizeDraft(await getDailySessionSize(trackFStore));
+      setSizeDraft(await getDailySessionSize(db));
       await begin();
     })();
   }, [begin]);
@@ -64,7 +64,7 @@ export function ReviewScreen() {
   const onGrade = useCallback(
     async (grade: ReviewGrade) => {
       if (session === null) return;
-      const { session: next, outcome } = await gradeCurrent(trackFStore, session, grade);
+      const { session: next, outcome } = await gradeCurrent(db, session, grade);
       setSession(next);
       setAnnouncement(announceGrade(outcome));
       // the next card is new content; move the reading position to it
@@ -74,7 +74,7 @@ export function ReviewScreen() {
   );
 
   const onSize = useCallback(async () => {
-    const outcome = await changeSessionSize(trackFStore, sizeDraft);
+    const outcome = await changeSessionSize(db, sizeDraft);
     setAnnouncement(announceSessionSize(outcome));
     if (outcome.kind === "saved") await begin();
   }, [begin, sizeDraft]);

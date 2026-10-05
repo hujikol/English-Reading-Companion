@@ -1,3 +1,5 @@
+import { withFailingPut } from "../faults.ts";
+import { db, type AppDB } from "../../src/db/index.ts";
 import { describe, expect, it } from "vitest";
 import type { ReviewEvent } from "../../src/db/index.ts";
 import {
@@ -11,7 +13,6 @@ import {
   stateFromEvents,
 } from "../../src/features/review/queue.ts";
 import { capture } from "../../src/features/vocabulary/capture.ts";
-import { memStore } from "../vocabulary/memStore.ts";
 
 const base = {
   anchor: { quote: "w", locator: { kind: "text" as const, blockId: "b1", start: 0, end: 1 }, anchorState: "resolved" as const },
@@ -26,7 +27,7 @@ const missing = (): string => {
 };
 
 /** one saved word per term, positionally matched to the caller's destructuring */
-async function seeded(store: ReturnType<typeof memStore>, terms: { surface: string; meaning?: string; sentence?: string }[]): Promise<string[]> {
+async function seeded(store: AppDB, terms: { surface: string; meaning?: string; sentence?: string }[]): Promise<string[]> {
   const ids: string[] = [];
   let t = 0;
   for (const term of terms) {
@@ -36,9 +37,10 @@ async function seeded(store: ReturnType<typeof memStore>, terms: { surface: stri
   return ids;
 }
 
+const store = db;
+
 describe("queue order", () => {
   it("puts the least recently reviewed first and never reviewed first of all", async () => {
-    const store = memStore();
     const [a = missing(), b = missing(), c = missing()] = await seeded(store, [{ surface: "a" }, { surface: "b" }, { surface: "c" }]);
 
     await applyGrade(store, a, "got-it", "e1", 500);
@@ -49,7 +51,6 @@ describe("queue order", () => {
   });
 
   it("shows the word, the original sentence and the saved meaning", async () => {
-    const store = memStore();
     const [a = missing()] = await seeded(store, [{ surface: "leverage", meaning: "memanfaatkan", sentence: "They leverage focus." }]);
     const queue = await buildQueue(store, 10);
     expect(queue.items[0]).toMatchObject({
@@ -59,7 +60,6 @@ describe("queue order", () => {
   });
 
   it("honours the learner-chosen session size and reports the overflow", async () => {
-    const store = memStore();
     await seeded(store, [{ surface: "a" }, { surface: "b" }, { surface: "c" }, { surface: "d" }]);
     expect(await getDailySessionSize(store)).toBe(DAILY_SESSION_DEFAULT);
     await setDailySessionSize(store, 2);
@@ -73,13 +73,11 @@ describe("queue order", () => {
   });
 
   it("rejects an absurd session size instead of storing it", async () => {
-    const store = memStore();
     await expect(setDailySessionSize(store, 0)).rejects.toThrow(RangeError);
     await expect(setDailySessionSize(store, 1e6)).rejects.toThrow(RangeError);
   });
 
   it("excludes Known cards and resumes them as Learning", async () => {
-    const store = memStore();
     const [a = missing()] = await seeded(store, [{ surface: "a" }, { surface: "b" }]);
     await applyGrade(store, a, "known", "e1", 10);
     expect((await buildQueue(store, 10)).items.map((i) => i.vocabulary.id)).not.toContain(a);
@@ -93,7 +91,6 @@ describe("queue order", () => {
 
 describe("review events", () => {
   it("records one event per action", async () => {
-    const store = memStore();
     const [a = missing()] = await seeded(store, [{ surface: "a" }]);
     const res = await applyGrade(store, a, "got-it", "e1", 1000);
     expect(res.duplicate).toBe(false);
@@ -102,7 +99,6 @@ describe("review events", () => {
   });
 
   it("writes nothing for a double tap on the same session event id", async () => {
-    const store = memStore();
     const [a = missing()] = await seeded(store, [{ surface: "a" }]);
     const first = await applyGrade(store, a, "got-it", "tap-1", 1000);
     const second = await applyGrade(store, a, "got-it", "tap-1", 1200);
@@ -114,7 +110,6 @@ describe("review events", () => {
   });
 
   it("keeps distinct ids distinct", async () => {
-    const store = memStore();
     const [a = missing()] = await seeded(store, [{ surface: "a" }]);
     await applyGrade(store, a, "again", "tap-1", 1000);
     await applyGrade(store, a, "got-it", "tap-2", 2000);
@@ -122,7 +117,6 @@ describe("review events", () => {
   });
 
   it("reproduces card state from events alone", async () => {
-    const store = memStore();
     const [a = missing()] = await seeded(store, [{ surface: "a" }]);
     await applyGrade(store, a, "got-it", "e1", 100);
     await applyGrade(store, a, "known", "e2", 200);
@@ -135,13 +129,9 @@ describe("review events", () => {
   });
 
   it("rolls back the card and vocabulary write when the event write fails", async () => {
-    const store = memStore();
     const [a = missing()] = await seeded(store, [{ surface: "a" }]);
-    const events = store.reviewEvents;
-    events.put = async () => {
-      throw new Error("QuotaExceeded");
-    };
-    await expect(applyGrade(store, a, "known", "e1", 100)).rejects.toThrow("QuotaExceeded");
+    const broken = withFailingPut("reviewEvents", "QuotaExceeded");
+    await expect(applyGrade(broken, a, "known", "e1", 100)).rejects.toThrow("QuotaExceeded");
 
     // neither the card nor the word moved: no half-graded state
     const card = (await store.reviewCards.get(a)) as { suspended: boolean; lastReviewedAt?: number };

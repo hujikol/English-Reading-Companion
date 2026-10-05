@@ -1,5 +1,5 @@
+import type { AppDB } from "../../../../src/db/index.ts";
 import type { Vocabulary } from "../../../contracts/index.ts";
-import type { Store } from "../../vocabulary/store.ts";
 
 /** Cells a spreadsheet would evaluate as a formula. Leading whitespace or a
  * tab does not stop Excel/LibreOffice, so those are prefixed too. */
@@ -19,7 +19,7 @@ export function csvRow(values: readonly unknown[]): string {
 const HEAD = ["surface", "meaning", "lemma", "status", "note", "occurrences", "books", "createdAt", "updatedAt"];
 
 /** UTF-8 CSV with a BOM so Excel opens non-ASCII Indonesian text correctly. */
-export function exportVocabularyCsv(store: Store): Promise<string> {
+export function exportVocabularyCsv(store: AppDB): Promise<string> {
   const rows = (async (): Promise<string[]> => {
     const words = (await store.vocabulary.toArray()) as Vocabulary[];
     const occurrences = (await store.occurrences.toArray()) as { vocabularyId?: string; titleSnapshot: string }[];

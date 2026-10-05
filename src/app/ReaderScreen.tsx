@@ -61,7 +61,6 @@ const MARK_SWATCH: Record<string, string> = {
 import { SelectionPopover } from "../ui/SelectionPopover.tsx";
 import { lookupSurface } from "../ui/vocab/dictionaryLookup.ts";
 import { dismissPopover, initialPopoverState, openPopover, type PopoverState } from "../ui/vocab/selectionPopover.ts";
-import { trackFStore } from "../features/vocabulary/store.ts";
 import { dbProgressStore, newMarkId, readBookmarks, readMarks, recordDocument, storeMark, touchDocument, writeBookmark } from "../ui/reader/stores.ts";
 import { deleteMark } from "../features/marks/save.ts";
 import "../ui/reader/reader.css";
@@ -121,8 +120,14 @@ export function ReaderScreen({ pendingDocument, pendingRecord, onDocumentOpened 
   // Single page mounts exactly one page; Continuous keeps a window mounted and
   // biases it toward the direction of travel.
   const [viewMode, setViewMode] = useState<"single" | "continuous">("single");
+  // Image = the PDF's own bitmap (exact). Text = the same text as real DOM text
+  // (selectable, searchable, crisp at any zoom) with the canvas hidden.
+  const [renderMode, setRenderMode] = useState<"image" | "text">("image");
   // Direction of travel, so the render window mounts ahead of the reader.
   const [scrollDirection, setScrollDirection] = useState<-1 | 0 | 1>(0);
+  const [pageDraft, setPageDraft] = useState("");
+  /** mark id briefly outlined after a jump, so the eye lands on it */
+  const [flashMark, setFlashMark] = useState<string | undefined>(undefined);
   const [mounted, setMounted] = useState<Map<number, MountedPage>>(new Map());
   const [inflight, setInflight] = useState<number[]>([]);
   const [selectionPage, setSelectionPage] = useState<number | undefined>(undefined);
@@ -683,6 +688,50 @@ export function ReaderScreen({ pendingDocument, pendingRecord, onDocumentOpened 
     setPopover((current) => (current.open && current.selection?.surface === popoverSelection.surface ? current : openPopover(current, popoverSelection)));
   }, [popoverSelection]);
 
+  const setRender = useCallback((mode: "image" | "text") => {
+    setRenderMode(mode);
+    // Text mode changes glyph advance widths, so a mark's painted rect is no
+    // longer trustworthy until it is recomputed. Re-derive by bouncing the page.
+    setMounted(new Map());
+  }, []);
+
+  /** Page box, typed or pasted, clamped. */
+  const goToPageInput = useCallback(
+    async (raw: string) => {
+      const n = Number.parseInt(raw, 10);
+      setPageDraft("");
+      if (!Number.isFinite(n)) return;
+      // stepPage clamps to the document; n is 1-based from the input.
+      await goToPageRef.current(stepPage(0, n - 1, pageCount));
+    },
+    [pageCount],
+  );
+
+  /**
+   * Scroll a highlight into view. Mounts its page first — a mark on a page
+   * outside the render window has no DOM node to scroll to — then flashes it.
+   */
+  const jumpToMark = useCallback(
+    async (markId: string) => {
+      const mark = await db.marks.get(markId);
+      if (mark === undefined || mark.anchor.locator.kind !== "pdf") return;
+      const page = mark.anchor.locator.pageIndex;
+      await goToPageRef.current(page);
+      // The page mounts on the next render; wait a frame for the node.
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          const node = document.getElementById(`mark-${markId}`);
+          if (node === null) return;
+          node.scrollIntoView({ block: "center", behavior: "smooth" });
+          setFlashMark(markId);
+          setLive(`Jumped to highlight: ${mark.anchor.quote.slice(0, 40)}`);
+          window.setTimeout(() => setFlashMark(undefined), 1600);
+        });
+      });
+    },
+    [],
+  );
+
   const closePopover = useCallback(() => setPopover((current) => dismissPopover(current)), []);
 
 
@@ -725,6 +774,54 @@ export function ReaderScreen({ pendingDocument, pendingRecord, onDocumentOpened 
           >
             Next ›
           </button>
+
+          {/* Type or paste a page number. A real <form> so Enter submits without
+              a key handler, and an input type=text with inputMode=numeric so it
+              accepts "12" without a spinner or a locale-parsed value. */}
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              void goToPageInput(pageDraft);
+            }}
+            className="flex items-center gap-1"
+          >
+            <label htmlFor="reader-page" className="sr-only">
+              Go to page
+            </label>
+            <input
+              id="reader-page"
+              type="text"
+              inputMode="numeric"
+              autoComplete="off"
+              value={pageDraft}
+              placeholder={pageCount === 0 ? "—" : String(visiblePage + 1)}
+              onChange={(event) => setPageDraft(event.target.value.replace(/[^0-9]/g, ""))}
+              aria-label={`Go to page of ${pageCount}`}
+              className="h-8 w-14 rounded-lg border border-line bg-paper text-center text-sm tabular-nums text-ink placeholder:text-ink-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            />
+            <span className="text-[13px] tabular-nums text-ink-soft">/ {pageCount}</span>
+          </form>
+        </div>
+
+        {/* Render mode. Image is the PDF's own bitmap; Text renders the same
+            text as real DOM text with the canvas hidden. */}
+        <div className="flex items-center gap-1 rounded-lg border border-line bg-paper p-0.5" role="group" aria-label="Render mode">
+          {(["image", "text"] as const).map((mode) => (
+            <button
+              key={mode}
+              type="button"
+              aria-pressed={renderMode === mode}
+              onClick={() => setRender(mode)}
+              title={mode === "image" ? "Show the PDF exactly as printed" : "Show real text instead of an image"}
+              className={
+                renderMode === mode
+                  ? `${BTN_SM} bg-accent text-white hover:bg-accent/90`
+                  : `${BTN_SM} text-ink-soft hover:bg-shell hover:text-ink`
+              }
+            >
+              {mode === "image" ? "Image" : "Text"}
+            </button>
+          ))}
         </div>
 
         {/* View mode as a segmented control with aria-pressed, so the CURRENT
@@ -831,6 +928,8 @@ export function ReaderScreen({ pendingDocument, pendingRecord, onDocumentOpened 
                           widthCss={plan.cssSize.widthCss}
                           heightCss={plan.cssSize.heightCss}
                           scale={plan.renderScale}
+                          renderMode={renderMode}
+                flashMark={flashMark}
                           getPage={getPage}
                           marks={marks}
                           pageText={pageText.get(pageIndex)}
@@ -874,6 +973,8 @@ export function ReaderScreen({ pendingDocument, pendingRecord, onDocumentOpened 
                           widthCss={plan.cssSize.widthCss}
                           heightCss={plan.cssSize.heightCss}
                           scale={plan.renderScale}
+                          renderMode={renderMode}
+                flashMark={flashMark}
                           getPage={getPage}
                           marks={marks}
                           pageText={pageText.get(pageIndex)}
@@ -945,7 +1046,7 @@ export function ReaderScreen({ pendingDocument, pendingRecord, onDocumentOpened 
         state={popover}
         onStateChange={setPopover}
         lookupSurface={lookupSurface}
-        store={trackFStore}
+        store={db}
         onDismiss={closePopover}
         packAttribution={null}
       />
@@ -960,6 +1061,14 @@ export function ReaderScreen({ pendingDocument, pendingRecord, onDocumentOpened 
               <li key={m.id} className="flex items-center gap-1">
                 <span className={`inline-block size-3 shrink-0 rounded-sm border border-line ${MARK_SWATCH[m.color] ?? ""}`} aria-hidden="true" />
                 <span className="max-w-40 truncate text-[13px]">{m.anchor.quote}</span>
+                <button
+                  type="button"
+                  className={BTN_SM}
+                  onClick={() => void jumpToMark(m.id)}
+                  aria-label={`Jump to highlight on "${m.anchor.quote.slice(0, 40)}"`}
+                >
+                  ↩
+                </button>
                 <button
                   type="button"
                   className={BTN_SM}

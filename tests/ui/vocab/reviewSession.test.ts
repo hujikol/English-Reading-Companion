@@ -6,13 +6,14 @@
  * double tap records one event.
  */
 
+import { withFailingTransaction } from "../../faults.ts";
+import { db, type AppDB } from "../../../src/db/index.ts";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import type { Anchor } from "../../../src/contracts/index.ts";
 import { capture } from "../../../src/features/vocabulary/capture.ts";
 import type { ReviewEvent } from "../../../src/db/index.ts";
 import { DAILY_SESSION_DEFAULT, SETTING_DAILY_SESSION_SIZE } from "../../../src/features/review/queue.ts";
-import type { Store } from "../../../src/features/vocabulary/store.ts";
 import {
   announceGrade,
   announceSessionSize,
@@ -24,7 +25,6 @@ import {
   reveal,
   startSession,
 } from "../../../src/ui/review/reviewSession.ts";
-import { memStore } from "../../vocabulary/memStore.ts";
 
 const anchor: Anchor = {
   quote: "w",
@@ -32,10 +32,10 @@ const anchor: Anchor = {
   anchorState: "resolved",
 };
 
-let store: Store;
+let store: AppDB;
 
 beforeEach(async () => {
-  store = memStore();
+  store = db;
   for (const surface of ["ubiquitous", "leverage", "salient"]) {
     await capture(store, {
       surface,
@@ -114,10 +114,7 @@ describe("review session", () => {
 
   it("keeps the card, the reveal and the error when the write fails", async () => {
     const session = reveal(await startSession(store));
-    const failing: Store = {
-      ...store,
-      transaction: () => Promise.reject(new Error("database is closed")),
-    };
+    const failing = withFailingTransaction("database is closed");
     const { session: after, outcome } = await gradeCurrent(failing, session, "again");
     expect(outcome).toEqual({ kind: "failed", grade: "again", vocabularyId: currentItem(session)!.vocabulary.id, message: "database is closed" });
     expect(announceGrade(outcome)).toBe("Not recorded: database is closed");

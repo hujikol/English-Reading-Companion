@@ -18,10 +18,10 @@
  *    and never `{kind:"saved"}` (section 11).
  */
 
+import type { AppDB } from "../../../src/db/index.ts";
 import type { Anchor, Explanation, LearningExplanation, Vocabulary, Occurrence } from "../../contracts/index.ts";
 import type { Lookup, LookupResult } from "../../features/dictionary/lookup.ts";
 import { capture, normalizeForm, type CaptureInput, type CaptureResult } from "../../features/vocabulary/capture.ts";
-import type { Store } from "../../features/vocabulary/store.ts";
 
 /** Selection-time geometry. Never persisted, never part of an Anchor (section 7). */
 export type PopoverRect = { top: number; left: number; bottom: number; right: number };
@@ -80,7 +80,7 @@ export type SaveOutcome =
   | { kind: "failed"; message: string };
 
 export type SaveRequest = {
-  store: Store;
+  store: AppDB;
   selection: Selection;
   meaning: string;
   note?: string;

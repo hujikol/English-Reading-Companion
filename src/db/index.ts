@@ -80,8 +80,12 @@ export class AppDB extends Dexie {
   semanticPages!: Table<unknown, string>;
   settings!: Table<SettingRecord, string>;
 
-  constructor() {
-    super("english-reading-companion");
+  /**
+   * `name` exists for tests that need a genuinely separate database; it
+   * defaults to the shipped name, so production construction is unchanged.
+   */
+  constructor(name = "english-reading-companion") {
+    super(name);
     this.version(1).stores({
       documents: "id, contentHash, lastOpenedAt, format",
       assets: "documentId",

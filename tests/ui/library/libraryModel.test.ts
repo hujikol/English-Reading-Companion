@@ -5,13 +5,13 @@
  * persistence claims, dedup by exact bytes, real CSV/backup bytes out.
  */
 
+import { db, type AppDB } from "../../../src/db/index.ts";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import type { DocumentRecord } from "../../../src/db/index.ts";
 import { exportBackup, UNENCRYPTED_WARNING } from "../../../src/features/settings/backup/backup.ts";
 import { exportVocabularyCsv } from "../../../src/features/settings/backup/csv.ts";
 import { capture } from "../../../src/features/vocabulary/capture.ts";
-import type { Store } from "../../../src/features/vocabulary/store.ts";
 import {
   announceExport,
   backupFileName,
@@ -26,7 +26,6 @@ import {
   titleFromName,
   type ImportSource,
 } from "../../../src/ui/library/libraryModel.ts";
-import { memStore } from "../../vocabulary/memStore.ts";
 
 /** a minimal valid PDF: header + one object + a closing marker */
 const pdfBytes = (label: string): Uint8Array =>
@@ -40,10 +39,10 @@ const source = (name: string, bytes: Uint8Array, type = "application/pdf"): Impo
   bytes,
 });
 
-let store: Store;
+let store: AppDB;
 
 beforeEach(() => {
-  store = memStore();
+  store = db;
 });
 
 describe("format detection", () => {

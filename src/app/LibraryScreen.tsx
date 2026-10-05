@@ -11,7 +11,6 @@ import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { db, deleteSource, type DocumentRecord, type ProgressRecord } from "../db/index.ts";
 import { exportBackup } from "../features/settings/backup/backup.ts";
 import { exportVocabularyCsv } from "../features/settings/backup/csv.ts";
-import { trackFStore } from "../features/vocabulary/store.ts";
 import { reopenDocument } from "../ui/library/reopen.ts";
 import {
   announceExport,
@@ -194,11 +193,11 @@ export function LibraryScreen({ onOpenDocument }: LibraryScreenProps = {}) {
     let outcome: ExportOutcome;
     try {
       if (kind === "backup") {
-        const file = await exportBackup(trackFStore);
+        const file = await exportBackup(db);
         outcome = exportOutcomeOf(backupFileName(), JSON.stringify(file, null, 2));
         DOWNLOAD(new Blob([JSON.stringify(file, null, 2)], { type: "application/json" }), outcome.kind === "exported" ? outcome.fileName : "backup.json");
       } else {
-        const csv = await exportVocabularyCsv(trackFStore);
+        const csv = await exportVocabularyCsv(db);
         outcome = exportOutcomeOf(csvFileName(), csv);
         DOWNLOAD(new Blob([csv], { type: "text/csv;charset=utf-8" }), outcome.kind === "exported" ? outcome.fileName : "vocabulary.csv");
       }

@@ -35,10 +35,14 @@ export type PageProps = {
   reportPixelSize(pageIndex: number, widthPx: number, heightPx: number): void;
   onTextLayerReady(pageIndex: number, element: HTMLElement): void;
   onRelease(pageIndex: number): void;
+  /** "image" paints the canvas; "text" hides it and shows the real text layer. */
+  renderMode: "image" | "text";
+  /** mark id to outline briefly after a jump-to-highlight */
+  flashMark?: string | undefined;
 };
 
 export function PdfPage(props: PageProps) {
-  const { pageIndex, widthCss, heightCss, scale, getPage, marks, pageText, registerCancel, registerPageBox, reportPixelSize, onTextLayerReady, onRelease } = props;
+  const { pageIndex, widthCss, heightCss, scale, getPage, marks, pageText, registerCancel, registerPageBox, reportPixelSize, onTextLayerReady, onRelease, renderMode, flashMark } = props;
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const textLayerRef = useRef<HTMLDivElement | null>(null);
   const liveRef = useRef(true);
@@ -64,14 +68,19 @@ export function PdfPage(props: PageProps) {
         await page.release();
         return;
       }
-      task = page.render(canvas, scale);
-      reportPixelSize(pageIndex, canvas.width, canvas.height);
-      try {
-        await task.promise;
-      } catch {
-        // Cancelled, or torn down mid-render. Section 6 wants supersession to
-        // be silent, so this is not surfaced as an error.
-        if (!liveRef.current) return;
+      // In text mode the canvas is hidden, so rasterising it is pure cost and
+      // there is no render task to wait on.
+      if (renderMode === "text") {
+        reportPixelSize(pageIndex, Math.floor(widthCss), Math.floor(heightCss));
+      } else {
+        task = page.render(canvas, scale);
+        reportPixelSize(pageIndex, canvas.width, canvas.height);
+        try {
+          await task.promise;
+        } catch {
+          // Cancelled, or torn down mid-render. Supersession is silent.
+          if (!liveRef.current) return;
+        }
       }
       if (disposed || !liveRef.current) return;
       try {
@@ -113,20 +122,21 @@ export function PdfPage(props: PageProps) {
         onRelease(pageIndex);
       })();
     };
-  }, [pageIndex, scale, widthCss]);
+  }, [pageIndex, scale, widthCss, renderMode]);
 
   return (
     <div
       className="reader__page"
       style={{ width: widthCss, height: heightCss }}
       data-page={pageIndex}
+      data-render={renderMode}
       role="group"
       aria-label={`Page ${pageIndex + 1}`}
       ref={(element) => registerPageBox(pageIndex, element)}
     >
       <div className="reader__marks" aria-hidden="true">
         {textLayerMounted && pageText !== undefined ? (
-          <MarkHighlights pageIndex={pageIndex} marks={marks} pageText={pageText} textLayer={textLayerRef.current} />
+          <MarkHighlights pageIndex={pageIndex} marks={marks} pageText={pageText} textLayer={textLayerRef.current} flashMark={flashMark} />
         ) : null}
       </div>
       <canvas ref={canvasRef} aria-label={`Page ${pageIndex + 1}`} role="img" />
@@ -141,8 +151,8 @@ export function PdfPage(props: PageProps) {
  * text); it is drawn only when that text is actually found. The rectangles are
  * computed from live client rects for painting only and are never stored.
  */
-function MarkHighlights(props: { pageIndex: number; marks: readonly Mark[]; pageText: string; textLayer: HTMLElement | null }) {
-  const { pageIndex, marks, pageText, textLayer } = props;
+function MarkHighlights(props: { pageIndex: number; marks: readonly Mark[]; pageText: string; textLayer: HTMLElement | null; flashMark?: string | undefined }) {
+  const { pageIndex, marks, pageText, textLayer, flashMark } = props;
   if (textLayer === null) return null;
   const boxes: { left: number; top: number; width: number; height: number; color: Mark["color"]; id: string }[] = [];
   for (const mark of marks) {
@@ -157,7 +167,7 @@ function MarkHighlights(props: { pageIndex: number; marks: readonly Mark[]; page
   return (
     <>
       {boxes.map((b) => (
-        <span key={b.id} data-color={b.color} style={{ left: b.left, top: b.top, width: b.width, height: b.height }} />
+        <span key={b.id} id={`mark-${b.id}`} data-mark-id={b.id} data-flash={b.id === flashMark ? "true" : undefined} data-color={b.color} style={{ left: b.left, top: b.top, width: b.width, height: b.height }} />
       ))}
     </>
   );

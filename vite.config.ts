@@ -5,6 +5,9 @@ import tailwindcss from "@tailwindcss/vite";
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   test: {
+    // A real IndexedDB in Node, so tests exercise the actual Dexie tables
+    // instead of a hand-written double. See tests/setup.ts.
+    setupFiles: ["./tests/setup.ts"],
     env: {
       // Some CLI scripts under scripts/ run their main() when their own file is
       // the entry. A test importing one would take that branch and exit the

@@ -189,6 +189,56 @@
   }
 }
 
+/*
+ * TEXT MODE — the PDF's own text as real DOM text, at PDF.js's exact
+ * positions, instead of an opaque canvas.
+ *
+ * PDF.js already positions every span with the real x/y/width and font size, so
+ * making those spans visible IS the text renderer. It is not a second code path:
+ * one attribute on the page flips it, and the text layer — which was there for
+ * selection all along — becomes the thing you read.
+ *
+ * What it buys: real text (selectable, copyable, searchable by the browser),
+ * zoom that reflows instead of scaling a bitmap, and text that survives at any
+ * DPR.
+ *
+ * What it costs: PDF.js supplies no embedded @font-face, so glyphs render in
+ * the fallback face and ADVANCE WIDTHS DRIFT from the original. Layout stays
+ * close, not pixel-identical — use Image mode for exact figures and diagrams,
+ * and for PDFs whose fonts matter. Images and vector art are canvas-only and
+ * disappear in this mode.
+ */
+.reader__page[data-render="text"] canvas {
+  display: none;
+}
+
+.reader__page[data-render="text"] {
+  background: var(--color-paper);
+}
+
+.reader__page[data-render="text"] .textLayer {
+  background: var(--color-paper);
+}
+
+.reader__page[data-render="text"] .textLayer > span {
+  color: var(--color-ink);
+  /* Fallback metrics differ from the PDF's, so a span can overhang its box.
+     Nothing clips here, or the drift would cut glyphs off. */
+  overflow: visible;
+}
+
+/* Marks sit above the text in both modes, so a highlight is findable by scroll. */
+.reader__marks span[data-mark-id] {
+  scroll-margin: 45vh;
+}
+
+/* After a jump, briefly outline the target so the eye lands on it. */
+.reader__marks span[data-flash="true"] {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+  border-radius: 2px;
+}
+
 .reader__visually-hidden {
   position: absolute;
   width: 1px;

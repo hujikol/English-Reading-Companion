@@ -6,13 +6,14 @@
  * path, which is exactly the state the app ships in until a pack is installed.
  */
 
+import { withFailingTransaction } from "../../faults.ts";
+import { db, type AppDB } from "../../../src/db/index.ts";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import type { Anchor } from "../../../src/contracts/index.ts";
 import type { Lookup } from "../../../src/features/dictionary/lookup.ts";
 import { capture } from "../../../src/features/vocabulary/capture.ts";
 import { listVocabulary, occurrencesOf } from "../../../src/features/vocabulary/capture.ts";
-import type { Store } from "../../../src/features/vocabulary/store.ts";
 import {
   announceCard,
   announceSave,
@@ -35,7 +36,6 @@ import {
   type Selection,
 } from "../../../src/ui/vocab/selectionPopover.ts";
 import { loadVocabulary, saveMeaning, buildRow } from "../../../src/ui/vocab/vocabularyPage.ts";
-import { memStore } from "../../vocabulary/memStore.ts";
 
 const anchor: Anchor = {
   quote: "ubiquitous",
@@ -73,10 +73,10 @@ const FOUND: Lookup = {
   },
 };
 
-let store: Store;
+let store: AppDB;
 
 beforeEach(() => {
-  store = memStore();
+  store = db;
 });
 
 /** drive the popover the way the component does: open, resolve, choose a meaning, save */
@@ -171,7 +171,7 @@ describe("the core loop: look up a word, then save it", () => {
     expect(await listVocabulary(store)).toHaveLength(0);
 
     // a store whose transaction rejects: the outcome must not read Saved
-    const broken: Store = { ...store, transaction: () => Promise.reject(new Error("quota exceeded")) };
+    const broken = withFailingTransaction("quota exceeded");
     const failed = await saveSelection({ store: broken, selection, meaning: "tersedia di mana-mana" });
     expect(failed).toEqual({ kind: "failed", message: "quota exceeded" });
     expect(announceSave(failed)).toBe("Not saved: quota exceeded");

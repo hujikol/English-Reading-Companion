@@ -1,3 +1,4 @@
+import { db } from "../../src/db/index.ts";
 import { describe, expect, it } from "vitest";
 import type { Anchor, LearningExplanation } from "../../src/contracts/index.ts";
 import {
@@ -10,7 +11,6 @@ import {
   occurrencesOf,
   setNote,
 } from "../../src/features/vocabulary/capture.ts";
-import { memStore } from "./memStore.ts";
 
 const anchor = (quote = "leverage", state: Anchor["anchorState"] = "resolved"): Anchor => ({
   quote,
@@ -49,7 +49,7 @@ const base = {
 
 describe("capture", () => {
   it("preserves surface, lemma, meaning, sentence, anchor, provenance, note and explanation", async () => {
-    const store = memStore();
+    const store = db;
     const res = await capture(store, {
       ...base,
       surface: "  Leverage  ",
@@ -86,7 +86,7 @@ describe("capture", () => {
   });
 
   it("saves a phrase with no dictionary match and a user-supplied meaning", async () => {
-    const store = memStore();
+    const store = db;
     const res = await capture(store, { ...base, surface: "in the bag", meaning: "telahpersistensi" });
     expect(res.vocabulary.provenance.kind).toBe("manual");
     expect(res.vocabulary.meaning).toBe("telahpersistensi");
@@ -95,7 +95,7 @@ describe("capture", () => {
   });
 
   it("attaches an occurrence instead of merging when the chosen meaning is identical", async () => {
-    const store = memStore();
+    const store = db;
     const first = await capture(store, { ...base, surface: "leverage", meaning: "memanfaatkan" }, { now: 1 });
     const second = await capture(store, { ...base, surface: "Leverage,", meaning: "memanfaatkan  ", anchor: anchor("leverage"), documentId: "doc-2", titleSnapshot: "Other Book", sentence: "Another sentence." }, { now: 2 });
 
@@ -106,11 +106,16 @@ describe("capture", () => {
 
     const occurrences = await occurrencesOf(store, first.vocabulary.id);
     expect(occurrences).toHaveLength(2);
-    expect(occurrences[1]).toMatchObject({ documentId: "doc-2", titleSnapshot: "Other Book", sentence: "Another sentence." });
+    // Order is NOT asserted: `Occurrence` has no timestamp, so table order is
+    // arbitrary. The old double preserved insertion order by accident, which is
+    // why this used to pass by index.
+    expect(occurrences).toContainEqual(
+      expect.objectContaining({ documentId: "doc-2", titleSnapshot: "Other Book", sentence: "Another sentence." }),
+    );
   });
 
   it("keeps a different sense as a separate word", async () => {
-    const store = memStore();
+    const store = db;
     const a = await capture(store, { ...base, surface: "leverage", meaning: "memanfaatkan" });
     const b = await capture(store, { ...base, surface: "leverage", meaning: "daya ungkit" });
 
@@ -126,7 +131,7 @@ describe("capture", () => {
   });
 
   it("finds the existing same-sense word so a UI can offer to attach", async () => {
-    const store = memStore();
+    const store = db;
     const a = await capture(store, { ...base, surface: "yield", meaning: "menghasilkan" });
     expect(await findSameSense(store, "Yield", "menghasilkan")).toMatchObject({ id: a.vocabulary.id });
     expect(await findSameSense(store, "yield", "bertanpa")).toBeUndefined();
@@ -135,7 +140,7 @@ describe("capture", () => {
 
 describe("meaning edits", () => {
   it("never destroys the original generated explanation", async () => {
-    const store = memStore();
+    const store = db;
     const saved = await capture(store, { ...base, surface: "leverage", meaning: "memanfaatkan", explanation: aiExplanation() }, { now: 1 });
     const original = saved.vocabulary.explanationText;
 
@@ -152,7 +157,7 @@ describe("meaning edits", () => {
   });
 
   it("does not record a divergence for a manual save with no explanation", async () => {
-    const store = memStore();
+    const store = db;
     const saved = await capture(store, { ...base, surface: "x", meaning: "y" });
     const edited = await editMeaning(store, saved.vocabulary.id, "y2", { now: 3 });
     expect(edited.explanationEditedAt).toBeUndefined();
@@ -160,7 +165,7 @@ describe("meaning edits", () => {
   });
 
   it("keeps notes independent of the meaning", async () => {
-    const store = memStore();
+    const store = db;
     const saved = await capture(store, { ...base, surface: "x", meaning: "y" });
     const noted = await setNote(store, saved.vocabulary.id, "lihat bab 3");
     expect(noted.note).toBe("lihat bab 3");
@@ -170,7 +175,7 @@ describe("meaning edits", () => {
 
 describe("explicit deletion", () => {
   it("removes the word, its occurrences and its card, but not explanation history", async () => {
-    const store = memStore();
+    const store = db;
     const saved = await capture(store, { ...base, surface: "leverage", meaning: "memanfaatkan", explanation: aiExplanation() });
     await deleteVocabulary(store, saved.vocabulary.id);
     expect(await store.vocabulary.count()).toBe(0);
@@ -182,7 +187,7 @@ describe("explicit deletion", () => {
   it("never runs on a quota path — no such caller exists", async () => {
     // the durability contract forbids auto-removal; capture/edit never delete, and
     // deleteVocabulary is only ever bound to an explicit user action (see src/features/vocabulary/index.ts)
-    const store = memStore();
+    const store = db;
     await capture(store, { ...base, surface: "leverage", meaning: "memanatkan" });
     expect(await store.vocabulary.count()).toBe(1);
   });

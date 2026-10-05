@@ -7,9 +7,9 @@
  * meaning never touches `explanationText`; that separation is the point.
  */
 
+import type { AppDB } from "../../../src/db/index.ts";
 import type { Occurrence, Vocabulary } from "../../contracts/index.ts";
 import { editMeaning, listVocabulary, occurrencesOf, setNote } from "../../features/vocabulary/capture.ts";
-import type { Store } from "../../features/vocabulary/store.ts";
 
 export type VocabularyRow = {
   vocabulary: Vocabulary;
@@ -57,7 +57,7 @@ export type VocabularyPage = {
 };
 
 export async function loadVocabulary(
-  store: Store,
+  store: AppDB,
   filter: VocabularyFilter = { query: "", status: "all" },
   availableTitles: ReadonlySet<string> = new Set(),
 ): Promise<VocabularyPage> {
@@ -74,7 +74,7 @@ export const isEdited = (row: VocabularyRow): boolean => row.meaningEdited;
 export type EditOutcome = { kind: "saved"; vocabulary: Vocabulary } | { kind: "failed"; message: string };
 
 /** Rejection keeps the row on screen and unsaved; it never reads Saved (section 4). */
-export async function saveMeaning(store: Store, vocabularyId: string, meaning: string): Promise<EditOutcome> {
+export async function saveMeaning(store: AppDB, vocabularyId: string, meaning: string): Promise<EditOutcome> {
   const trimmed = meaning.trim();
   if (trimmed === "") return { kind: "failed", message: "A meaning cannot be empty." };
   try {
@@ -84,7 +84,7 @@ export async function saveMeaning(store: Store, vocabularyId: string, meaning: s
   }
 }
 
-export async function saveNote(store: Store, vocabularyId: string, note: string): Promise<EditOutcome> {
+export async function saveNote(store: AppDB, vocabularyId: string, note: string): Promise<EditOutcome> {
   try {
     return { kind: "saved", vocabulary: await setNote(store, vocabularyId, note) };
   } catch (e) {
