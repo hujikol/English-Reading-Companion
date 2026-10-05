@@ -54,6 +54,11 @@ export type WindowInput = {
    * behind, which is what makes continuous scrolling feel continuous.
    */
   scrollDirection?: -1 | 0 | 1;
+  /**
+   * Override the per-tier radius. Single-page mode uses 0 so exactly one page
+   * is mounted; continuous reading uses the tier default.
+   */
+  radius?: number;
   tabVisible: boolean;
 };
 
@@ -74,6 +79,13 @@ export type WindowPlan = {
   pxSize: { width: number; height: number };
   /** effective scale actually applied; never above MAX_DEVICE_PIXEL_RATIO */
   scale: number;
+  /**
+   * Device-pixel scale the canvas bitmap must be rendered at to fill its CSS
+   * box: zoom x DPR, after the edge cap. Differs from `scale`, which is the
+   * uncapped DPR used for memory accounting — rendering at `scale` would leave
+   * a fixed-size bitmap the browser upscales when zoomed.
+   */
+  renderScale: number;
   /** kept pages + pxSize at the planned scale */
   budgetBytes: number;
 };
@@ -157,6 +169,13 @@ export function planWindow(input: WindowInput): WindowPlan {
   // again here would allocate a canvas quadratic in zoom
   const scale = pixelScale(input.devicePixelRatio);
   const pxSize = { width: capEdge(cssSize.widthCss * scale), height: capEdge(cssSize.heightCss * scale) };
+  // The scale the canvas bitmap must be rendered at to fill its CSS box.
+  //
+  // pxSize is zoom x DPR; cssSize is zoom x baseWidth. Dividing those cancels
+  // the zoom out and always yields DPR — which is exactly what was wrong before.
+  // The canvas needs pxSize over the BASE width, so the bitmap grows with the
+  // box instead of being upscaled by the browser.
+  const renderScale = pxSize.width / Math.max(1, input.viewport.widthCss);
   const perPage = canvasBytes(pxSize.width, pxSize.height);
   const budget = input.budgetBytes ?? CANVAS_BUDGET_BYTES[input.tier];
   const v = clampPage(input.visiblePage, pageCount);
@@ -167,12 +186,13 @@ export function planWindow(input: WindowInput): WindowPlan {
   // The lead is SIGNED: negative must bias the window backward, and taking
   // Math.abs() of it built the same forward window for both directions.
   const lead = input.scrollDirection ?? 0;
+  const radius = input.radius ?? WINDOW_RADIUS[input.tier];
   let keep = windowPages(
     v,
     pageCount,
-    WINDOW_RADIUS[input.tier],
+    radius,
     selectionPage === undefined ? [] : [selectionPage],
-    lead * WINDOW_RADIUS[input.tier],
+    lead * radius,
   );
 
   // Memory shrink path: drop a page until the budget is met. The visible page
@@ -220,6 +240,7 @@ export function planWindow(input: WindowInput): WindowPlan {
     cssSize,
     pxSize,
     scale,
+    renderScale,
     budgetBytes: keep.length * perPage,
   };
 }

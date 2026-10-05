@@ -40,7 +40,7 @@ const DOWNLOAD = (blob: Blob, fileName: string): void => {
 
 export type LibraryScreenProps = {
   /** Hand a stored document to the reader. Omitted renders the list only. */
-  onOpenDocument?: (file: File) => void | Promise<void>;
+  onOpenDocument?: (file: File, document: DocumentRecord) => void | Promise<void>;
 };
 
 export function LibraryScreen({ onOpenDocument }: LibraryScreenProps = {}) {
@@ -67,7 +67,29 @@ export function LibraryScreen({ onOpenDocument }: LibraryScreenProps = {}) {
       for (const d of stale) d.importState = "ready";
     }
 
-    setRows(buildLibraryRows(documents, progress));
+    // Reopening used to mint a new document id, so the same book was saved
+    // again and again under fresh ids. Collapse those back to one entry,
+    // keeping the most recently opened and re-pointing its progress.
+    const byHash = new Map<string, DocumentRecord>();
+    const duplicates: string[] = [];
+    for (const d of [...documents].sort((a, b) => a.lastOpenedAt - b.lastOpenedAt)) {
+      const key = d.contentHash;
+      if (key === undefined || key === "") continue;
+      const winner = byHash.get(key);
+      if (winner === undefined) {
+        byHash.set(key, d);
+        continue;
+      }
+      duplicates.push(d.id);
+      // Later rows hold the more recent reading position; move it to the
+      // survivor before the duplicate is deleted, or the position is lost.
+      const loserProgress = await db.progress.get(d.id);
+      if (loserProgress !== undefined) await db.progress.put({ ...loserProgress, documentId: winner.id });
+    }
+    if (duplicates.length > 0) await db.documents.bulkDelete(duplicates);
+
+    const surviving = documents.filter((d) => !duplicates.includes(d.id));
+    setRows(buildLibraryRows(surviving, progress));
   }, []);
 
   useEffect(() => {
@@ -130,7 +152,7 @@ export function LibraryScreen({ onOpenDocument }: LibraryScreenProps = {}) {
           });
           return;
         }
-        await onOpenDocument?.(result.file);
+        await onOpenDocument?.(result.file, result.document);
       } finally {
         setBusy(false);
       }

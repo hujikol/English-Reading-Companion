@@ -20,6 +20,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Bookmark, Locator, Mark } from "../contracts/index.ts";
 import { newDocumentId, sha256 } from "../features/library/identity.ts";
+import { db, type DocumentRecord } from "../db/index.ts";
 import { announce, hasBookmarkAt, isSamePosition, makeBookmark, saveBookmark, softDelete, visibleBookmarks } from "../features/library/bookmarks.ts";
 import { MOVEMENT_DEBOUNCE_MS, initialProgressState, mustFlushNow, persistProgress, queueProgress, type ProgressState } from "../features/library/progress.ts";
 import type { DeviceTier } from "../features/library/validate.ts";
@@ -84,10 +85,15 @@ export type ReaderScreenProps = {
    * reopen it twice.
    */
   pendingDocument?: File | undefined;
+  /**
+   * The stored record `pendingDocument` came from. Reusing its id is what stops
+   * a reopen from becoming a second library entry with no progress.
+   */
+  pendingRecord?: DocumentRecord | undefined;
   onDocumentOpened?: (documentId: string) => void;
 };
 
-export function ReaderScreen({ pendingDocument, onDocumentOpened }: ReaderScreenProps = {}) {
+export function ReaderScreen({ pendingDocument, pendingRecord, onDocumentOpened }: ReaderScreenProps = {}) {
   const [status, setStatus] = useState<Status>("empty");
   const [errors, setErrors] = useState<ImportError[]>([]);
   const [notices, setNotices] = useState<ImportNotice[]>([]);
@@ -99,6 +105,9 @@ export function ReaderScreen({ pendingDocument, onDocumentOpened }: ReaderScreen
   // reader view state
   const [visiblePage, setVisiblePage] = useState(0);
   const [zoom, setZoom] = useState(1);
+  // Single page mounts exactly one page; Continuous keeps a window mounted and
+  // biases it toward the direction of travel.
+  const [viewMode, setViewMode] = useState<"single" | "continuous">("single");
   // Direction of travel, so the render window mounts ahead of the reader.
   const [scrollDirection, setScrollDirection] = useState<-1 | 0 | 1>(0);
   const [mounted, setMounted] = useState<Map<number, MountedPage>>(new Map());
@@ -147,12 +156,13 @@ export function ReaderScreen({ pendingDocument, onDocumentOpened }: ReaderScreen
         viewport: baseSize,
         zoom,
       scrollDirection,
+      ...(viewMode === "single" ? { radius: 0 } : {}),
         devicePixelRatio: typeof window === "undefined" ? 1 : window.devicePixelRatio,
         inflight,
         tabVisible,
         ...(selectionPage === undefined ? {} : { selectionPage }),
       }),
-    [visiblePage, pageCount, tier, mounted, baseSize, zoom, inflight, tabVisible, selectionPage, scrollDirection],
+    [visiblePage, pageCount, tier, mounted, baseSize, zoom, inflight, tabVisible, selectionPage, scrollDirection, viewMode],
   );
 
   /**
@@ -211,7 +221,7 @@ export function ReaderScreen({ pendingDocument, onDocumentOpened }: ReaderScreen
   // ---- opening a document -------------------------------------------------
 
   const openFile = useCallback(
-    async (file: File, suppliedPassword?: string) => {
+    async (file: File, suppliedPassword?: string, known?: DocumentRecord) => {
       setStatus("validating");
       setErrors([]);
       setNotices([]);
@@ -229,7 +239,12 @@ export function ReaderScreen({ pendingDocument, onDocumentOpened }: ReaderScreen
       const bytes = new Uint8Array(await file.arrayBuffer());
       // Section 5: a random stable id is assigned immediately; the content hash
       // is computed in the background and never blocks display.
-      const documentId = newDocumentId();
+      //
+      // Reopening a stored book MUST reuse that book's id. Minting a new one
+      // made every reopen a different document: it re-appeared as a second
+      // library entry and could never find its own progress row, so a book read
+      // to page 24 opened at page 1.
+      const documentId = known?.id ?? newDocumentId();
 
       let pdf: PdfjsDocumentHandle;
       try {
@@ -290,6 +305,14 @@ export function ReaderScreen({ pendingDocument, onDocumentOpened }: ReaderScreen
         try {
           const contentHash = await sha256(bytes);
           setOpen((current) => (current?.documentId === documentId ? { ...current, contentHash, identityState: "ready" } : current));
+          if (known !== undefined) {
+            // Reopening an already-stored book. Its bytes and row are on disk
+            // already; rewriting them would churn the same blob for nothing.
+            // Only the page count is refreshed, which can legitimately change
+            // if the file was replaced.
+            await db.documents.update(documentId, { pageCount: pdf.capabilities.pageCount, lastOpenedAt: Date.now() });
+            return;
+          }
           await recordDocument({
             id: documentId,
             title: file.name.replace(/\.pdf$/i, ""),
@@ -315,8 +338,8 @@ export function ReaderScreen({ pendingDocument, onDocumentOpened }: ReaderScreen
     if (pendingDocument === undefined) return;
     if (openedExternal.current === pendingDocument) return;
     openedExternal.current = pendingDocument;
-    void openFile(pendingDocument, "");
-  }, [pendingDocument]);
+    void openFile(pendingDocument, "", pendingRecord);
+  }, [pendingDocument, pendingRecord]);
 
   // Load marks and bookmarks for the open document.
   const documentId = open?.documentId;
@@ -671,6 +694,13 @@ export function ReaderScreen({ pendingDocument, onDocumentOpened }: ReaderScreen
         </div>
 
         <div className="reader__toolbar" role="group" aria-label="Zoom">
+          <button
+            type="button"
+            onClick={() => setViewMode((m) => (m === "single" ? "continuous" : "single"))}
+            aria-label={`Page view: ${viewMode === "single" ? "single page" : "continuous"}. Switch view.`}
+          >
+            {viewMode === "single" ? "Single page" : "Continuous"}
+          </button>
           <button type="button" onClick={() => setZoom((z) => clampZoom(z - ZOOM_STEP))} disabled={zoom <= ZOOM_MIN} aria-label="Zoom out">
             −
           </button>
@@ -761,7 +791,7 @@ export function ReaderScreen({ pendingDocument, onDocumentOpened }: ReaderScreen
                           pageIndex={pageIndex}
                           widthCss={plan.cssSize.widthCss}
                           heightCss={plan.cssSize.heightCss}
-                          scale={plan.scale}
+                          scale={plan.renderScale}
                           getPage={getPage}
                           marks={marks}
                           pageText={pageText.get(pageIndex)}
