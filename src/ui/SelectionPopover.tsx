@@ -14,6 +14,7 @@
  *    component.
  */
 
+import { BTN_PRIMARY, BTN_SECONDARY, META } from "./styles.ts";
 import { useCallback, useEffect, useId, useRef } from "react";
 
 import {
@@ -208,7 +209,7 @@ export function SelectionPopover(props: SelectionPopoverProps) {
           </span>
         )}
         {summary.kind === "candidate" && <span className="mt-1 block text-xs text-ink-soft">no exact entry — closest: {summary.headword}</span>}
-        <button type="button" className="-mr-1 -mt-1 shrink-0 rounded p-1 text-lg leading-none text-ink-soft hover:bg-shell focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent" onClick={() => close("action")} aria-label="Close lookup">
+        <button type="button" className="-mr-1.5 -mt-1.5 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-lg leading-none text-ink-soft hover:bg-shell" onClick={() => close("action")} aria-label="Close lookup">
           ×
         </button>
       </div>
@@ -263,7 +264,7 @@ export function SelectionPopover(props: SelectionPopoverProps) {
       </label>
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
-        <button type="button" className="rounded-lg bg-accent px-3 py-2 text-sm font-medium text-white hover:bg-accent/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-40" onClick={doSave} disabled={!canSave(state)}>
+        <button type="button" className={BTN_PRIMARY} onClick={doSave} disabled={!canSave(state)}>
           {state.savePending ? "Saving…" : "Save to vocabulary"}
         </button>
         {/*
@@ -272,7 +273,7 @@ export function SelectionPopover(props: SelectionPopoverProps) {
         */}
         <button
           type="button"
-          className="rounded-lg border border-line bg-paper px-3 py-2 text-sm font-medium text-ink hover:bg-shell focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-40"
+          className={BTN_SECONDARY}
           onClick={doExplain}
           disabled={aiDisabled || state.explainPending}
           title={aiDisabled ? (ai !== undefined && !ai.configured ? ai.reason : "No AI provider is configured.") : "Explain this word with AI"}
@@ -283,13 +284,13 @@ export function SelectionPopover(props: SelectionPopoverProps) {
       </div>
 
       {aiDisabled && (
-        <p id={`${headingId}-ai-note`} className="mt-2 block text-xs leading-relaxed text-ink-soft">
+        <p id={`${headingId}-ai-note`} className={`mt-2 block ${META}`}>
           AI is off. Configure a provider in Settings to enable it. Reading and saving work without it.
         </p>
       )}
 
       {state.explain !== null && (
-        <p className="mt-2 block text-xs leading-relaxed text-ink-soft">
+        <p className={`mt-2 block ${META}`}>
           {state.explain.kind === "explained"
             ? state.explain.result.naturalTranslation
             : state.explain.kind === "disabled"

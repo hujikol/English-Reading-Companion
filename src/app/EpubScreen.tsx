@@ -27,6 +27,7 @@ import {
   stepPosition,
 } from "../features/reader/epub/reader.tsx";
 import type { Appearance, OpenFailure } from "../features/reader/epub/adapter.ts";
+import { BTN_PRIMARY, BTN_SECONDARY, BTN_ICON } from "../ui/styles.ts";
 import "../ui/reader/reader.css";
 
 const ACCEPTED_MIME = "application/epub+zip,.epub";
@@ -222,6 +223,7 @@ export function EpubScreen(props: EpubScreenProps) {
 
         <div className="reader__toolbar" role="group" aria-label="Chapter navigation">
           <button
+            className={BTN_SECONDARY}
             type="button"
             onClick={() => showAt(stepPosition(position, -1, count))}
             disabled={open?.status !== "ready" || position <= 0}
@@ -233,6 +235,7 @@ export function EpubScreen(props: EpubScreenProps) {
             {info === undefined ? "No book open" : `Section ${info.position + 1} of ${info.count} — ${info.label}`}
           </span>
           <button
+            className={BTN_SECONDARY}
             type="button"
             onClick={() => showAt(stepPosition(position, 1, count))}
             disabled={open?.status !== "ready" || count === 0 || position >= count - 1}
@@ -243,11 +246,11 @@ export function EpubScreen(props: EpubScreenProps) {
         </div>
 
         <div className="reader__toolbar" role="group" aria-label="Text size">
-          <button type="button" onClick={() => setFontSizePx((px) => Math.max(FONT_MIN_PX, px - FONT_STEP_PX))} disabled={fontSizePx <= FONT_MIN_PX} aria-label="Smaller text">
+          <button type="button" className={BTN_ICON} onClick={() => setFontSizePx((px) => Math.max(FONT_MIN_PX, px - FONT_STEP_PX))} disabled={fontSizePx <= FONT_MIN_PX} aria-label="Smaller text">
             −
           </button>
           <span>{fontSizePx}px</span>
-          <button type="button" onClick={() => setFontSizePx((px) => Math.min(FONT_MAX_PX, px + FONT_STEP_PX))} disabled={fontSizePx >= FONT_MAX_PX} aria-label="Larger text">
+          <button type="button" className={BTN_ICON} onClick={() => setFontSizePx((px) => Math.min(FONT_MAX_PX, px + FONT_STEP_PX))} disabled={fontSizePx >= FONT_MAX_PX} aria-label="Larger text">
             +
           </button>
         </div>

@@ -276,7 +276,7 @@ export function LibraryScreen({ onOpenDocument }: LibraryScreenProps = {}) {
               <h2 className="font-read text-lg font-semibold leading-snug text-ink">{row.document.title}</h2>
 
               <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                <span className="rounded-full border border-line bg-shell px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-ink-soft">
+                <span className="rounded-full border border-line bg-shell px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-ink-soft">
                   {row.document.format.toUpperCase()}
                 </span>
                 <span className="text-xs text-ink-soft">{formatBytes(row.document.byteSize)}</span>

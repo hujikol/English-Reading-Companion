@@ -49,6 +49,15 @@ import {
 } from "../ui/reader/readerModel.ts";
 import { anchorFromSelection, pageOfNode, readSelection, type SelectionCapture } from "../ui/reader/selection.ts";
 import { buildSelection } from "../ui/reader/popoverBridge.ts";
+import { BTN_PRIMARY, BTN_SECONDARY, BTN_SM, BTN_ICON, BTN_QUIET } from "../ui/styles.ts";
+
+/** Mark swatch fills; the letter label needs dark ink on all four. */
+const MARK_SWATCH: Record<string, string> = {
+  yellow: "bg-yellow-200",
+  green: "bg-green-200",
+  blue: "bg-blue-200",
+  pink: "bg-pink-200",
+};
 import { SelectionPopover } from "../ui/SelectionPopover.tsx";
 import { lookupSurface } from "../ui/vocab/dictionaryLookup.ts";
 import { dismissPopover, initialPopoverState, openPopover, type PopoverState } from "../ui/vocab/selectionPopover.ts";
@@ -667,7 +676,7 @@ export function ReaderScreen({ pendingDocument, pendingRecord, onDocumentOpened 
   return (
     <div className="reader" onMouseUp={captureSelection}>
       <div className="reader__bar">
-        <label className="reader__button" htmlFor="reader-open">
+        <label className={`${BTN_PRIMARY} cursor-pointer`} htmlFor="reader-open">
           Open PDF…
         </label>
         <input
@@ -683,7 +692,8 @@ export function ReaderScreen({ pendingDocument, pendingRecord, onDocumentOpened 
         />
 
         <div className="reader__toolbar" role="group" aria-label="Page navigation">
-          <button type="button" onClick={() => void goToPage(stepPage(visiblePage, -1, pageCount))} disabled={pageCount === 0 || visiblePage <= 0} aria-label="Previous page">
+          <button type="button" className={BTN_SECONDARY}
+            onClick={() => void goToPage(stepPage(visiblePage, -1, pageCount))} disabled={pageCount === 0 || visiblePage <= 0} aria-label="Previous page">
             ‹ Prev
           </button>
           <span>
@@ -691,6 +701,7 @@ export function ReaderScreen({ pendingDocument, pendingRecord, onDocumentOpened 
           </span>
           <button
             type="button"
+            className={BTN_PRIMARY}
             onClick={() => void goToPage(stepPage(visiblePage, 1, pageCount))}
             disabled={pageCount === 0 || visiblePage >= pageCount - 1}
             aria-label="Next page"
@@ -699,25 +710,42 @@ export function ReaderScreen({ pendingDocument, pendingRecord, onDocumentOpened 
           </button>
         </div>
 
-        <div className="reader__toolbar" role="group" aria-label="Zoom">
-          <button
-            type="button"
-            onClick={() => setViewMode((m) => (m === "single" ? "continuous" : "single"))}
-            aria-label={`Page view: ${viewMode === "single" ? "single page" : "continuous"}. Switch view.`}
-          >
-            {viewMode === "single" ? "Single page" : "Continuous"}
-          </button>
-          <button type="button" onClick={() => setZoom((z) => clampZoom(z - ZOOM_STEP))} disabled={zoom <= ZOOM_MIN} aria-label="Zoom out">
+        {/* View mode as a segmented control with aria-pressed, so the CURRENT
+            mode is exposed to assistive tech rather than only implied by the
+            label text flipping. */}
+        <div className="flex items-center gap-1 rounded-lg border border-line bg-paper p-0.5" role="group" aria-label="Page view mode">
+          {(["single", "continuous"] as const).map((mode) => (
+            <button
+              key={mode}
+              type="button"
+              aria-pressed={viewMode === mode}
+              onClick={() => setViewMode(mode)}
+              className={
+                viewMode === mode
+                  ? `${BTN_SM} bg-accent text-white hover:bg-accent/90`
+                  : `${BTN_SM} text-ink-soft hover:bg-shell hover:text-ink`
+              }
+            >
+              {mode === "single" ? "Paged" : "Scroll"}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex items-center gap-1" role="group" aria-label="Zoom">
+          <button type="button" className={BTN_ICON} onClick={() => setZoom((z) => clampZoom(z - ZOOM_STEP))} disabled={zoom <= ZOOM_MIN} aria-label="Zoom out">
             −
           </button>
-          <span>{Math.round(zoom * 100)}%</span>
-          <button type="button" onClick={() => setZoom((z) => clampZoom(z + ZOOM_STEP))} disabled={zoom >= ZOOM_MAX} aria-label="Zoom in">
+          <span className="min-w-14 text-center text-[13px] tabular-nums text-ink-soft" aria-live="polite">
+            {Math.round(zoom * 100)}%
+          </span>
+          <button type="button" className={BTN_ICON} onClick={() => setZoom((z) => clampZoom(z + ZOOM_STEP))} disabled={zoom >= ZOOM_MAX} aria-label="Zoom in">
             +
           </button>
         </div>
 
         <button
           type="button"
+          className={BTN_SECONDARY}
           aria-pressed={bookmarkedHere}
           aria-keyshortcuts="b"
           onClick={toggleBookmark}
@@ -766,7 +794,7 @@ export function ReaderScreen({ pendingDocument, pendingRecord, onDocumentOpened 
                   autoComplete="off"
                   onChange={(event) => setPassword(event.target.value)}
                 />{" "}
-                <button type="submit">Open</button>
+                <button type="submit" className={BTN_PRIMARY}>Open</button>
               </form>
             )}
           </div>
@@ -850,10 +878,10 @@ export function ReaderScreen({ pendingDocument, pendingRecord, onDocumentOpened 
           <ul>
             {shownBookmarks.map((bookmark) => (
               <li key={bookmark.id}>
-                <button type="button" className="reader__jump" onClick={() => void goToPage(bookmark.locator.kind === "pdf" ? bookmark.locator.pageIndex : visiblePage)}>
+                <button type="button" className={`${BTN_QUIET} min-h-8 px-2 py-1 text-[13px]`} onClick={() => void goToPage(bookmark.locator.kind === "pdf" ? bookmark.locator.pageIndex : visiblePage)}>
                   {bookmark.label}
                 </button>
-                <button type="button" className="reader__delete" onClick={() => void removeBookmark(bookmark)} aria-label={`Delete bookmark ${bookmark.label}`}>
+                <button type="button" className={`${BTN_SM} shrink-0 text-danger hover:bg-danger/10`} onClick={() => void removeBookmark(bookmark)} aria-label={`Delete bookmark ${bookmark.label}`}>
                   ✕
                 </button>
               </li>
@@ -881,7 +909,7 @@ export function ReaderScreen({ pendingDocument, pendingRecord, onDocumentOpened 
         >
           <p>{selection.capture.quote.slice(0, 60)}</p>
           {MARK_COLORS.map((color) => (
-            <button key={color} type="button" onClick={() => void addMark(color)} aria-label={`Mark selection ${color}`}>
+            <button key={color} type="button" className={`${BTN_ICON} ${MARK_SWATCH[color] ?? ""}`} onClick={() => void addMark(color)} aria-label={`Mark selection ${color}`}>
               {color.charAt(0).toUpperCase()}
             </button>
           ))}

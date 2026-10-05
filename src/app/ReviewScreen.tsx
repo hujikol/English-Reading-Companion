@@ -38,7 +38,7 @@ const BTN_PRIMARY = `${BTN} bg-accent text-paper hover:bg-accent/90`;
 const BTN_SECONDARY = `${BTN} border border-line bg-paper text-ink hover:border-ink/30 hover:bg-shell`;
 
 const FIELD_LABEL = "block text-xs font-semibold uppercase tracking-wide text-ink-soft";
-const BLOCK_LABEL = "block text-[11px] font-semibold uppercase tracking-wide text-ink-soft";
+const BLOCK_LABEL = "block text-xs font-semibold uppercase tracking-wide text-ink-soft";
 const FIELD =
   "mt-1.5 w-24 rounded-lg border border-line bg-paper px-3 py-2 text-sm text-ink transition-colors focus:outline-2 focus:outline-offset-2 focus:outline-accent";
 
