@@ -99,6 +99,8 @@ export function ReaderScreen({ pendingDocument, onDocumentOpened }: ReaderScreen
   // reader view state
   const [visiblePage, setVisiblePage] = useState(0);
   const [zoom, setZoom] = useState(1);
+  // Direction of travel, so the render window mounts ahead of the reader.
+  const [scrollDirection, setScrollDirection] = useState<-1 | 0 | 1>(0);
   const [mounted, setMounted] = useState<Map<number, MountedPage>>(new Map());
   const [inflight, setInflight] = useState<number[]>([]);
   const [selectionPage, setSelectionPage] = useState<number | undefined>(undefined);
@@ -144,12 +146,13 @@ export function ReaderScreen({ pendingDocument, onDocumentOpened }: ReaderScreen
         mounted: [...mounted.values()],
         viewport: baseSize,
         zoom,
+      scrollDirection,
         devicePixelRatio: typeof window === "undefined" ? 1 : window.devicePixelRatio,
         inflight,
         tabVisible,
         ...(selectionPage === undefined ? {} : { selectionPage }),
       }),
-    [visiblePage, pageCount, tier, mounted, baseSize, zoom, inflight, tabVisible, selectionPage],
+    [visiblePage, pageCount, tier, mounted, baseSize, zoom, inflight, tabVisible, selectionPage, scrollDirection],
   );
 
   /**
@@ -180,13 +183,17 @@ export function ReaderScreen({ pendingDocument, onDocumentOpened }: ReaderScreen
     if (viewport === null) return undefined;
     let frame = 0;
     const onScroll = () => {
-      if (frame !== 0) return;
-      frame = requestAnimationFrame(() => {
-        frame = 0;
-        const page = visiblePageOfState(scrollState());
-        setVisiblePage((current) => (current === page ? current : page));
-      });
-    };
+          if (frame !== 0) return;
+          frame = requestAnimationFrame(() => {
+            frame = 0;
+            const page = visiblePageOfState(scrollState());
+            setVisiblePage((current) => {
+              // Direction of travel, so the window mounts ahead of the reader.
+              if (page !== current) setScrollDirection(page > current ? 1 : -1);
+              return page === current ? current : page;
+            });
+          });
+        };
     viewport.addEventListener("scroll", onScroll, { passive: true });
     return () => {
       viewport.removeEventListener("scroll", onScroll);

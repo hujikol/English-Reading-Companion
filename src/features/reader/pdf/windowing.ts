@@ -48,6 +48,12 @@ export type WindowInput = {
   inflight?: readonly number[];
   /** page holding the live selection; stays mounted until selection ends */
   selectionPage?: number;
+  /**
+   * Which way the reader is scrolling: 1 forward, -1 backward, 0 or absent
+   * when idle. Biases the window so scrolling forward mounts ahead and frees
+   * behind, which is what makes continuous scrolling feel continuous.
+   */
+  scrollDirection?: -1 | 0 | 1;
   tabVisible: boolean;
 };
 
@@ -101,19 +107,40 @@ function clampPage(p: number, pageCount: number): number {
 /**
  * Pages in the window, nearest to the visible page first.
  *
- * ponytail: the radius shrinks uniformly rather than per-side. Section 6 says
- * "reduce the window when canvas memory reaches its limit"; a per-side budget
- * split buys little because pages cost the same. Revisit if measurement shows
- * backward-biased reading wants a longer trailing window.
+ * `lead` biases the window toward the direction of travel: reading forward
+ * mounts more pages ahead than behind, so scrolling never outruns what is
+ * mounted and shows blanks. Symmetric when lead is 0.
+ *
+ * ponytail: radius is uniform per side otherwise. Section 6 says "reduce the
+ * window when canvas memory reaches its limit"; a per-side budget split buys
+ * little because pages cost the same.
  */
-export function windowPages(visiblePage: number, pageCount: number, radius: number, extraKeep: readonly number[] = []): number[] {
+export function windowPages(
+  visiblePage: number,
+  pageCount: number,
+  radius: number,
+  extraKeep: readonly number[] = [],
+  lead = 0,
+): number[] {
   if (pageCount <= 0) return [];
   const v = clampPage(visiblePage, pageCount);
+  // `lead` is signed. Positive biases forward, negative backward. Each side is
+  // radius + |lead| on the side being travelled toward and radius - |lead| on
+  // the side left behind, so the mounted set stays the same size.
+  const magnitude = Math.abs(lead);
+  const ahead = lead >= 0 ? radius + magnitude : Math.max(0, radius - magnitude);
+  const back = lead >= 0 ? Math.max(0, radius - magnitude) : radius + magnitude;
   const out: number[] = [];
-  for (let d = 0; d <= radius; d++) {
-    for (const p of [v - d, v + d]) {
-      if (p >= 0 && p < pageCount && !out.includes(p)) out.push(p);
-    }
+  // Each side is walked independently. Adding both sides for every distance —
+  // as an earlier version did — grew the window to back+ahead+1 instead of
+  // keeping it the same size.
+  for (let d = 0; d <= back; d++) {
+    const p = v - d;
+    if (p >= 0 && !out.includes(p)) out.push(p);
+  }
+  for (let d = 0; d <= ahead; d++) {
+    const p = v + d;
+    if (p < pageCount && !out.includes(p)) out.push(p);
   }
   for (const p of extraKeep) {
     const i = clampPage(p, pageCount);
@@ -137,21 +164,43 @@ export function planWindow(input: WindowInput): WindowPlan {
   // An active selection keeps its page mounted; it is never evicted for space.
   const selectionPage = input.selectionPage === undefined ? undefined : clampPage(input.selectionPage, pageCount);
 
-  let keep = windowPages(v, pageCount, WINDOW_RADIUS[input.tier], selectionPage === undefined ? [] : [selectionPage]);
+  // The lead is SIGNED: negative must bias the window backward, and taking
+  // Math.abs() of it built the same forward window for both directions.
+  const lead = input.scrollDirection ?? 0;
+  let keep = windowPages(
+    v,
+    pageCount,
+    WINDOW_RADIUS[input.tier],
+    selectionPage === undefined ? [] : [selectionPage],
+    lead * WINDOW_RADIUS[input.tier],
+  );
 
-  // Memory shrink path: drop the farthest page until the budget is met. The
-  // visible page and the selection's page are pinned and never dropped.
+  // Memory shrink path: drop a page until the budget is met. The visible page
+  // and the selection's page are pinned and never dropped. Pages behind the
+  // direction of travel go first, so a tight budget trims the tail the reader
+  // has already passed rather than the one they are scrolling into.
   const pinned = new Set<number>([v, ...(selectionPage === undefined ? [] : [selectionPage])]);
-  const dist = (a: number, b: number): number => Math.abs(a - v) - Math.abs(b - v);
+  // Bias only when the reader is actually moving. Idle must keep the original
+  // "drop the farthest" rule with a neutral tie-break, or a resting reader's
+  // window would drift to one side on its own.
+  const behindFirst = lead === 0
+    ? (): number => 0
+    : lead > 0
+      ? (a: number, b: number): number => (b - v) - (a - v)
+      : (a: number, b: number): number => (a - v) - (b - v);
+  const farthest = (): number | undefined =>
+    keep
+      .filter((p) => !pinned.has(p))
+      .sort((a, b) => Math.abs(a - v) - Math.abs(b - v) || behindFirst(a, b))
+      .pop();
   while (keep.length * perPage > budget) {
-    // last after ascending sort == farthest from the visible page
-    const farthest = keep.filter((p) => !pinned.has(p)).sort(dist).pop();
-    if (farthest === undefined) break; // budget below one page: keep the pins only
-    keep = keep.filter((p) => p !== farthest);
+    const drop = farthest();
+    if (drop === undefined) break; // budget below one page: keep the pins only
+    keep = keep.filter((p) => p !== drop);
   }
 
   const keepSet = new Set(keep);
-  const nearest = (a: number, b: number): number => dist(a, b);
+  const nearest = (a: number, b: number): number => Math.abs(a - v) - Math.abs(b - v);
   const render = keep.slice().sort(nearest);
 
   const mounted = new Set(input.mounted.map((p) => p.pageIndex));
