@@ -178,7 +178,7 @@ export function SelectionPopover(props: SelectionPopoverProps) {
   return (
     <div
       ref={cardRef}
-      className="erc-popover"
+      className="absolute z-30 w-[22rem] rounded-xl border border-line bg-paper shadow-xl shadow-black/10 p-4 text-ink"
       role="dialog"
       aria-labelledby={headingId}
       aria-describedby={sentenceId}
@@ -187,47 +187,47 @@ export function SelectionPopover(props: SelectionPopoverProps) {
       data-testid="selection-popover"
     >
       {/* Announced programmatically: a transient visual card is not announced on its own. */}
-      <p role="status" aria-live="polite" className="erc-visually-hidden">
+      <p role="status" aria-live="polite" className="sr-only">
         {announceCard(state, summary)}
       </p>
-      <p role="status" aria-live="polite" className="erc-visually-hidden">
+      <p role="status" aria-live="polite" className="sr-only">
         {state.save === null ? "" : announceSave(state.save)}
       </p>
 
-      <div className="erc-popover__head">
-        <h2 id={headingId} className="erc-popover__surface">
+      <div className="mb-3 flex items-start justify-between gap-2">
+        <h2 id={headingId} className="text-lg font-semibold leading-tight text-ink break-words">
           {selection.surface}
         </h2>
         {summary.kind === "match" && (
-          <span className="erc-popover__meta">
-            {summary.partOfSpeech !== null && <span className="erc-popover__pos">{summary.partOfSpeech}</span>}
+          <span className="mt-1 block text-xs text-ink-soft">
+            {summary.partOfSpeech !== null && <span className="mr-2 rounded bg-accent-soft px-1.5 py-0.5 font-medium text-accent">{summary.partOfSpeech}</span>}
             {headwordDiffers(
               { headword: summary.headword, normalizedForm: "", partOfSpeech: null, senses: [], matchedVia: summary.matchedVia },
               selection.surface,
-            ) && <span className="erc-popover__headword">as {summary.headword}</span>}
+            ) && <span className="italic">as {summary.headword}</span>}
           </span>
         )}
-        {summary.kind === "candidate" && <span className="erc-popover__meta">no exact entry — closest: {summary.headword}</span>}
-        <button type="button" className="erc-popover__close" onClick={() => close("action")} aria-label="Close lookup">
+        {summary.kind === "candidate" && <span className="mt-1 block text-xs text-ink-soft">no exact entry — closest: {summary.headword}</span>}
+        <button type="button" className="-mr-1 -mt-1 shrink-0 rounded p-1 text-lg leading-none text-ink-soft hover:bg-shell focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent" onClick={() => close("action")} aria-label="Close lookup">
           ×
         </button>
       </div>
 
-      {state.status === "looking-up" && <p className="erc-popover__status">Looking up…</p>}
+      {state.status === "looking-up" && <p className="mb-3 text-sm text-ink-soft">Looking up…</p>}
 
       {state.status === "failed" && (
-        <p className="erc-popover__status erc-popover__status--error">
+        <p className="mb-3 rounded-lg border border-danger/30 bg-danger/5 p-2 text-sm text-danger">
           The local dictionary could not be read: {state.lookupError}
         </p>
       )}
 
       {senses.length > 0 && (
-        <ul className="erc-senses" aria-label="Senses">
+        <ul className="mb-3 flex max-h-40 flex-col gap-1 overflow-y-auto" aria-label="Senses">
           {senses.map((sense) => (
             <li key={sense.senseId}>
               <button
                 type="button"
-                className="erc-sense"
+                className="w-full rounded-lg border border-line px-3 py-2 text-left text-sm hover:border-accent hover:bg-accent-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent aria-pressed:border-accent aria-pressed:bg-accent-soft"
                 aria-pressed={sense.selected}
                 onClick={() => onStateChange(setMeaningDraft(state, sense.gloss))}
               >
@@ -239,12 +239,12 @@ export function SelectionPopover(props: SelectionPopoverProps) {
       )}
 
       {miss !== null && miss.kind === "none" && (
-        <p className="erc-popover__miss">
+        <p className="mb-3 rounded-lg bg-shell p-2 text-sm text-ink-soft">
           <strong>{miss.reason.headline}</strong> {miss.reason.detail}
         </p>
       )}
 
-      <label className="erc-field" htmlFor={meaningId}>
+      <label className="mb-3 block text-xs font-medium text-ink-soft" htmlFor={meaningId}>
         <span>Meaning you will save</span>
         <textarea
           id={meaningId}
@@ -255,15 +255,15 @@ export function SelectionPopover(props: SelectionPopoverProps) {
         />
       </label>
 
-      <label className="erc-field" htmlFor={sentenceId}>
+      <label className="mb-3 block text-xs font-medium text-ink-soft" htmlFor={sentenceId}>
         <span>Original sentence</span>
-        <output id={sentenceId} className="erc-sentence">
+        <output id={sentenceId} className="mt-1 block max-h-24 overflow-y-auto rounded-lg bg-shell p-2 font-read text-sm leading-relaxed text-ink">
           {selection.sentence === "" ? "No sentence captured for this selection." : selection.sentence}
         </output>
       </label>
 
-      <div className="erc-actions">
-        <button type="button" className="erc-btn erc-btn--primary" onClick={doSave} disabled={!canSave(state)}>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <button type="button" className="rounded-lg bg-accent px-3 py-2 text-sm font-medium text-white hover:bg-accent/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-40" onClick={doSave} disabled={!canSave(state)}>
           {state.savePending ? "Saving…" : "Save to vocabulary"}
         </button>
         {/*
@@ -272,7 +272,7 @@ export function SelectionPopover(props: SelectionPopoverProps) {
         */}
         <button
           type="button"
-          className="erc-btn"
+          className="rounded-lg border border-line bg-paper px-3 py-2 text-sm font-medium text-ink hover:bg-shell focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-40"
           onClick={doExplain}
           disabled={aiDisabled || state.explainPending}
           title={aiDisabled ? (ai !== undefined && !ai.configured ? ai.reason : "No AI provider is configured.") : "Explain this word with AI"}
@@ -283,23 +283,23 @@ export function SelectionPopover(props: SelectionPopoverProps) {
       </div>
 
       {aiDisabled && (
-        <p id={`${headingId}-ai-note`} className="erc-popover__note">
+        <p id={`${headingId}-ai-note`} className="mt-2 block text-xs leading-relaxed text-ink-soft">
           AI is off. Configure a provider in Settings to enable it. Reading and saving work without it.
         </p>
       )}
 
       {state.explain !== null && (
-        <p className="erc-popover__note">
+        <p className="mt-2 block text-xs leading-relaxed text-ink-soft">
           {state.explain.kind === "explained"
             ? state.explain.result.naturalTranslation
             : state.explain.kind === "disabled"
               ? state.explain.reason
               : `The explanation failed: ${state.explain.message}`}
-          <span className="erc-visually-hidden">{announceExplain(state.explain)}</span>
+          <span className="sr-only">{announceExplain(state.explain)}</span>
         </p>
       )}
 
-      <footer className="erc-popover__foot">
+      <footer className="mt-3 flex items-center justify-between gap-2 border-t border-line pt-2 text-xs text-ink-soft">
         {packAttribution === null || packAttribution === undefined
           ? "Local lookup — no dictionary pack installed"
           : `${packAttribution.source} · ${packAttribution.license}`}

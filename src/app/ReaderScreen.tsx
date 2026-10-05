@@ -57,6 +57,9 @@ import { dbProgressStore, newMarkId, readBookmarks, readMarks, recordDocument, s
 import "../ui/reader/reader.css";
 
 /** Must match .reader__viewport in reader.css: gap and padding between pages. */
+/** Pages beyond this from the visible one stay an invisible slot. */
+const PREFETCH_RANGE = 3;
+
 const STACK_GAP = 16;
 const STACK_PADDING = 16;
 
@@ -155,8 +158,11 @@ export function ReaderScreen({ pendingDocument, pendingRecord, onDocumentOpened 
         mounted: [...mounted.values()],
         viewport: baseSize,
         zoom,
-      scrollDirection,
-      ...(viewMode === "single" ? { radius: 0 } : {}),
+        // Single page mounts exactly one. Continuous keeps the window and
+        // prefetches three pages ahead, so the next pages are already
+        // rendering before the reader scrolls to them.
+        ...(viewMode === "single" ? { radius: 0, prefetchLead: 0 } : { prefetchLead: 3 }),
+        scrollDirection,
         devicePixelRatio: typeof window === "undefined" ? 1 : window.devicePixelRatio,
         inflight,
         tabVisible,
@@ -775,10 +781,16 @@ export function ReaderScreen({ pendingDocument, pendingRecord, onDocumentOpened 
                     Array.from({ length: pageCount }, (_, pageIndex) => {
                       const mounted = plan.keep.includes(pageIndex);
                       if (!mounted) {
+                        // Instagram-style: a page inside the prefetch range shows
+                        // a placeholder so the reader can see content arriving,
+                        // while pages further out stay invisible. Either way the
+                        // slot keeps its height, so the scroll height never
+                        // collapses as pages mount and unmount.
+                        const pending = Math.abs(pageIndex - visiblePage) <= PREFETCH_RANGE;
                         return (
                           <div
                             key={pageIndex}
-                            className="reader__spacer"
+                            className={pending ? "reader__spacer reader__spacer--pending" : "reader__spacer"}
                             aria-hidden="true"
                             data-page={pageIndex}
                             style={{ height: plan.cssSize.heightCss }}

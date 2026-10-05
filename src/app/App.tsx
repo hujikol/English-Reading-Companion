@@ -50,14 +50,19 @@ export function App() {
 
   return (
     <>
-      <nav aria-label="Sections">
-        <ul>
+      <nav aria-label="Sections" className="sticky top-0 z-40 border-b border-line bg-paper/90 backdrop-blur">
+        <ul className="mx-auto flex max-w-6xl items-center gap-1 px-4 py-2">
           {TABS.map((t) => (
             <li key={t.id}>
               <button
                 type="button"
                 aria-current={tab === t.id ? "page" : undefined}
                 onClick={() => setTab(t.id)}
+                className={
+                  tab === t.id
+                    ? "rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                    : "rounded-lg px-3 py-1.5 text-sm font-medium text-ink-soft hover:bg-shell hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                }
               >
                 {t.label}
               </button>

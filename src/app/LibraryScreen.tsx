@@ -29,6 +29,21 @@ import {
 
 type Notice = { tone: "ok" | "error"; text: string };
 
+/*
+ * Buttons. Tailwind v4 composes these from the `@theme` tokens in app.css; the
+ * focus ring is `outline-*` rather than `ring-*` so it never changes layout,
+ * and it is on `focus-visible` so a mouse click does not leave a halo behind.
+ */
+const FOCUS =
+  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
+const BTN =
+  `inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-colors ${FOCUS} disabled:cursor-not-allowed disabled:opacity-50`;
+/** The one action a card is for. Text on `accent` is 5:1 — AA at any size. */
+const BTN_PRIMARY = `${BTN} bg-accent text-paper hover:bg-accent/90`;
+const BTN_SECONDARY = `${BTN} border border-line bg-paper text-ink hover:border-ink/30 hover:bg-shell`;
+/** Destructive-adjacent but recoverable: text-only until hovered or focused. */
+const BTN_QUIET = `${BTN} px-3 text-ink-soft hover:bg-shell hover:text-ink`;
+
 const DOWNLOAD = (blob: Blob, fileName: string): void => {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -193,24 +208,43 @@ export function LibraryScreen({ onOpenDocument }: LibraryScreenProps = {}) {
     setNotice({ tone: outcome.kind === "exported" ? "ok" : "error", text: announceExport(outcome) });
   }, []);
 
-  return (
-    <section className="erc-screen" aria-labelledby={headingId}>
-      <h1 id={headingId}>Library</h1>
+  // The live region must stay mounted while it is empty or nothing is announced,
+  // so an empty notice is kept out of the layout with `sr-only` instead of being
+  // unmounted.
+  const noticeClass =
+    notice === null
+      ? "sr-only"
+      : `mt-4 flex items-start gap-2 rounded-lg border px-3 py-2 text-sm ${
+          notice.tone === "error"
+            ? "border-danger/40 bg-danger/10 text-danger"
+            : "border-accent/40 bg-accent-soft text-ink"
+        }`;
 
-      <div className="erc-toolbar">
-        <button
-          type="button"
-          className="erc-btn erc-btn--primary"
-          onClick={() => fileInput.current?.click()}
-          disabled={busy}
-        >
+  return (
+    <section aria-labelledby={headingId} className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6 sm:py-8">
+      <header>
+        <h1 id={headingId} className="text-2xl font-semibold tracking-tight text-ink">
+          Library
+        </h1>
+        <p className="mt-1 text-sm text-ink-soft">
+          Books saved on this device. Opening one returns you to the position you left off at.
+        </p>
+      </header>
+
+      <div className="mt-5 flex flex-wrap items-center gap-2">
+        <button type="button" className={BTN_PRIMARY} onClick={() => fileInput.current?.click()} disabled={busy}>
           Open a file
         </button>
+        {/*
+          Driven by the button above, so it is `hidden` rather than `sr-only`: a
+          visually hidden but focusable file input is a tab stop with no visible
+          focus ring. `click()` on a hidden input still opens the picker.
+        */}
         <input
           ref={fileInput}
           type="file"
           accept=".pdf,.epub,.txt,.md,.markdown"
-          className="erc-visually-hidden"
+          className="hidden"
           aria-label="Choose a PDF, EPUB, TXT or Markdown file"
           onChange={(e) => {
             const file = e.target.files?.[0];
@@ -218,44 +252,67 @@ export function LibraryScreen({ onOpenDocument }: LibraryScreenProps = {}) {
             if (file) void onImport(file);
           }}
         />
-        <button type="button" className="erc-btn" onClick={() => void runExport("backup")}>
+        <button type="button" className={BTN_SECONDARY} onClick={() => void runExport("backup")}>
           Export backup (JSON)
         </button>
-        <button type="button" className="erc-btn" onClick={() => void runExport("csv")}>
+        <button type="button" className={BTN_SECONDARY} onClick={() => void runExport("csv")}>
           Export vocabulary (CSV)
         </button>
       </div>
 
       {/* programmatic confirmation: a transient visual badge is not announced */}
-      <p role="status" aria-live="polite" className={notice?.tone === "error" ? "erc-notice erc-notice--error" : "erc-notice"}>
+      <p role="status" aria-live="polite" className={noticeClass}>
         {notice?.text ?? ""}
       </p>
 
       {rows.length === 0 ? (
-        <p className="erc-empty">No documents yet. Open a PDF, EPUB, TXT or Markdown file to start reading.</p>
+        <p className="mt-6 rounded-xl border border-dashed border-line bg-paper px-6 py-10 text-center text-sm text-ink-soft">
+          No documents yet. Open a PDF, EPUB, TXT or Markdown file to start reading.
+        </p>
       ) : (
-        <ul className="erc-library" aria-label="Imported documents">
+        <ul className="mt-6 grid gap-3 sm:grid-cols-2" aria-label="Imported documents">
           {rows.map((row) => (
-            <li key={row.document.id} className="erc-library__row">
-              <div>
-                <h2 className="erc-library__title">{row.document.title}</h2>
-                <p className="erc-library__meta">
-                  {row.document.format.toUpperCase()} · {formatBytes(row.document.byteSize)} · {row.positionLabel} · {row.storageLabel}
-                </p>
-                {row.document.importState !== "ready" && <p className="erc-library__warn">This document is not saved on this device.</p>}
+            <li key={row.document.id} className="flex flex-col rounded-xl border border-line bg-paper p-4 shadow-sm">
+              <h2 className="font-read text-lg font-semibold leading-snug text-ink">{row.document.title}</h2>
+
+              <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                <span className="rounded-full border border-line bg-shell px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-ink-soft">
+                  {row.document.format.toUpperCase()}
+                </span>
+                <span className="text-xs text-ink-soft">{formatBytes(row.document.byteSize)}</span>
               </div>
-              <button
-                type="button"
-                className="erc-btn"
-                onClick={() => void onOpen(row.document.id)}
-                disabled={onOpenDocument === undefined || row.document.importState !== "ready"}
-                aria-label={`Open ${row.document.title}${row.positionLabel === "" ? "" : `, ${row.positionLabel}`}`}
-              >
-                {row.positionLabel === "" ? "Open" : `Open ${row.positionLabel}`}
-              </button>
-              <button type="button" className="erc-btn erc-btn--quiet" onClick={() => void onRemove(row.document.id)} aria-label={`Remove ${row.document.title}`}>
-                Remove
-              </button>
+
+              <dl className="mt-3 space-y-1 text-xs">
+                <div className="flex gap-2">
+                  <dt className="w-16 shrink-0 text-ink-soft">Position</dt>
+                  <dd className="font-medium text-ink">{row.positionLabel}</dd>
+                </div>
+                <div className="flex gap-2">
+                  <dt className="w-16 shrink-0 text-ink-soft">Storage</dt>
+                  <dd className="text-ink-soft">{row.storageLabel}</dd>
+                </div>
+              </dl>
+
+              {row.document.importState !== "ready" && (
+                <p className="mt-3 rounded-md border border-danger/40 bg-danger/10 px-2 py-1 text-xs font-medium text-danger">
+                  This document is not saved on this device.
+                </p>
+              )}
+
+              <div className="mt-4 flex flex-wrap items-center gap-2 sm:mt-auto sm:pt-4">
+                <button
+                  type="button"
+                  className={BTN_PRIMARY}
+                  onClick={() => void onOpen(row.document.id)}
+                  disabled={onOpenDocument === undefined || row.document.importState !== "ready"}
+                  aria-label={`Open ${row.document.title}${row.positionLabel === "" ? "" : `, ${row.positionLabel}`}`}
+                >
+                  {row.positionLabel === "" ? "Open" : `Open ${row.positionLabel}`}
+                </button>
+                <button type="button" className={BTN_QUIET} onClick={() => void onRemove(row.document.id)} aria-label={`Remove ${row.document.title}`}>
+                  Remove
+                </button>
+              </div>
             </li>
           ))}
         </ul>

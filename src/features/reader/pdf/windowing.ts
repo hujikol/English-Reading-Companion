@@ -55,6 +55,12 @@ export type WindowInput = {
    */
   scrollDirection?: -1 | 0 | 1;
   /**
+   * Extra pages to mount toward the direction of travel, beyond the radius.
+   * Continuous reading uses this to prefetch: the next pages are already
+   * rendering before the reader scrolls to them.
+   */
+  prefetchLead?: number;
+  /**
    * Override the per-tier radius. Single-page mode uses 0 so exactly one page
    * is mounted; continuous reading uses the tier default.
    */
@@ -192,7 +198,7 @@ export function planWindow(input: WindowInput): WindowPlan {
     pageCount,
     radius,
     selectionPage === undefined ? [] : [selectionPage],
-    lead * radius,
+    lead * radius + Math.max(0, input.prefetchLead ?? 0),
   );
 
   // Memory shrink path: drop a page until the budget is met. The visible page
