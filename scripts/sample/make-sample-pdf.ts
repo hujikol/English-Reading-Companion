@@ -27,12 +27,26 @@ const PAGES = [
 
 const esc = (s: string) => s.replace(/([\\()])/g, "\\$1");
 
-/** One content stream: BT /F1 16 Tf, then each line at a descending y. */
-const contentFor = (lines: readonly string[]) =>
-  ["BT", "/F1 18 Tf", "72 760 Td", `(${esc(lines[0] ?? "")}) Tj`, "/F1 12 Tf"]
-    .concat(lines.slice(1).flatMap((line) => ["0 -28 Td", `(${esc(line)}) Tj`]))
-    .concat(["ET"])
-    .join("\n");
+/**
+ * One content stream, emitting ONE Tj PER WORD.
+ *
+ * Real books do this: PDF.js reports one item per text-showing operator, so a
+ * word routinely arrives split across several items. A fixture that emits whole
+ * lines hides the class of bug that produces "oppor tunities".
+ */
+const contentFor = (lines: readonly string[]) => {
+  const ops: string[] = ["BT", "/F1 18 Tf", "72 760 Td"];
+  let first = true;
+  for (const line of lines) {
+    for (const word of line.split(" ")) {
+      if (word === "") continue;
+      ops.push(`${first ? "" : "0 -28 Td"}(${esc(word)}) Tj`);
+      first = false;
+    }
+  }
+  ops.push("ET");
+  return ops.join("\n");
+};
 
 /**
  * Assemble the PDF. Object numbering is fixed and explicit: a generator that

@@ -12,17 +12,28 @@ endobj
 << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 5 0 R >>
 endobj
 5 0 obj
-<< /Length 154 >>
+<< /Length 324 >>
 stream
 BT
 /F1 18 Tf
 72 760 Td
-(The Crossing) Tj
-/F1 12 Tf
-0 -28 Td
-(The ferry left the harbour at dawn.) Tj
-0 -28 Td
-(The water was quiet for a long time.) Tj
+(The) Tj
+0 -28 Td(Crossing) Tj
+0 -28 Td(The) Tj
+0 -28 Td(ferry) Tj
+0 -28 Td(left) Tj
+0 -28 Td(the) Tj
+0 -28 Td(harbour) Tj
+0 -28 Td(at) Tj
+0 -28 Td(dawn.) Tj
+0 -28 Td(The) Tj
+0 -28 Td(water) Tj
+0 -28 Td(was) Tj
+0 -28 Td(quiet) Tj
+0 -28 Td(for) Tj
+0 -28 Td(a) Tj
+0 -28 Td(long) Tj
+0 -28 Td(time.) Tj
 ET
 endstream
 endobj
@@ -30,17 +41,25 @@ endobj
 << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 7 0 R >>
 endobj
 7 0 obj
-<< /Length 150 >>
+<< /Length 281 >>
 stream
 BT
 /F1 18 Tf
 72 760 Td
 (Rain) Tj
-/F1 12 Tf
-0 -28 Td
-(Rain arrived before the lighthouse.) Tj
-0 -28 Td
-(The wind began to drift across the deck.) Tj
+0 -28 Td(Rain) Tj
+0 -28 Td(arrived) Tj
+0 -28 Td(before) Tj
+0 -28 Td(the) Tj
+0 -28 Td(lighthouse.) Tj
+0 -28 Td(The) Tj
+0 -28 Td(wind) Tj
+0 -28 Td(began) Tj
+0 -28 Td(to) Tj
+0 -28 Td(drift) Tj
+0 -28 Td(across) Tj
+0 -28 Td(the) Tj
+0 -28 Td(deck.) Tj
 ET
 endstream
 endobj
@@ -48,17 +67,26 @@ endobj
 << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 9 0 R >>
 endobj
 9 0 obj
-<< /Length 151 >>
+<< /Length 295 >>
 stream
 BT
 /F1 18 Tf
 72 760 Td
-(Flat Water) Tj
-/F1 12 Tf
-0 -28 Td
-(By noon the water had gone flat.) Tj
-0 -28 Td
-(She remembered the crossing for years.) Tj
+(Flat) Tj
+0 -28 Td(Water) Tj
+0 -28 Td(By) Tj
+0 -28 Td(noon) Tj
+0 -28 Td(the) Tj
+0 -28 Td(water) Tj
+0 -28 Td(had) Tj
+0 -28 Td(gone) Tj
+0 -28 Td(flat.) Tj
+0 -28 Td(She) Tj
+0 -28 Td(remembered) Tj
+0 -28 Td(the) Tj
+0 -28 Td(crossing) Tj
+0 -28 Td(for) Tj
+0 -28 Td(years.) Tj
 ET
 endstream
 endobj
@@ -70,12 +98,12 @@ xref
 0000000127 00000 n 
 0000000224 00000 n 
 0000000350 00000 n 
-0000000555 00000 n 
-0000000681 00000 n 
-0000000882 00000 n 
-0000001008 00000 n 
+0000000725 00000 n 
+0000000851 00000 n 
+0000001183 00000 n 
+0000001309 00000 n 
 trailer
 << /Size 10 /Root 1 0 R >>
 startxref
-1210
+1655
 %%EOF

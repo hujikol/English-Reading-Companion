@@ -18,6 +18,7 @@
 
 import type { PdfAdapter, PdfCapabilities, PdfPageHandle, PdfPassword, RenderTask } from "../../features/reader/pdf/adapter.ts";
 import { PdfPasswordRequiredError, classifyPdfOpenError } from "../../features/reader/pdf/adapter.ts";
+import { pageTextOf } from "./pageText.ts";
 
 /**
  * The slice of the pdfjs API this file uses. Structural rather than
@@ -88,12 +89,10 @@ class PdfjsPage implements PdfjsPageHandle {
   /** Original page text, in PDF.js reading order. Used for selection context. */
   async text(): Promise<string> {
     const content = await this.page.getTextContent();
-    return content.items
-      .map((item) => ("str" in item ? item.str : ""))
-      .filter((s) => s.length > 0)
-      .join(" ")
-      .replace(/\s+/g, " ")
-      .trim();
+    // NOT items.join(" "): PDF.js splits single words across items, so a naive
+    // join injects spaces inside them ("oppor tunities"). pageTextOf decides
+    // spacing from the item geometry.
+    return pageTextOf(content.items);
   }
 
   /**
