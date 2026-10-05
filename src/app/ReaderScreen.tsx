@@ -63,6 +63,7 @@ import { lookupSurface } from "../ui/vocab/dictionaryLookup.ts";
 import { dismissPopover, initialPopoverState, openPopover, type PopoverState } from "../ui/vocab/selectionPopover.ts";
 import { trackFStore } from "../features/vocabulary/store.ts";
 import { dbProgressStore, newMarkId, readBookmarks, readMarks, recordDocument, storeMark, touchDocument, writeBookmark } from "../ui/reader/stores.ts";
+import { deleteMark } from "../features/marks/save.ts";
 import "../ui/reader/reader.css";
 
 /** Must match .reader__viewport in reader.css: gap and padding between pages. */
@@ -539,6 +540,22 @@ export function ReaderScreen({ pendingDocument, pendingRecord, onDocumentOpened 
     setSelectionPage(pageIndex);
   }, []);
 
+  /**
+   * Remove a mark. Soft delete, matching deleteMark in features/marks/save.ts:
+   * the row keeps `deletedAt` rather than vanishing, so an undo is possible and
+   * an accidental deletion is recoverable.
+   */
+  const removeMark = useCallback(
+    async (markId: string) => {
+      const current = await db.marks.get(markId);
+      if (current === undefined || current.deletedAt !== undefined) return;
+      await db.marks.put(deleteMark(current, Date.now()));
+      setMarks(await readMarks(open?.documentId ?? ""));
+      setLive("Highlight removed.");
+    },
+    [open?.documentId],
+  );
+
   const currentLocator = useMemo((): Locator => locatorAt(visiblePage, pageFractionAtState(scrollState(), visiblePage)), [visiblePage, mounted, scrollState]);
   const bookmarkedHere = useMemo(() => hasBookmarkAt(bookmarks, currentLocator), [bookmarks, currentLocator]);
 
@@ -908,10 +925,17 @@ export function ReaderScreen({ pendingDocument, pendingRecord, onDocumentOpened 
           }}
         >
           <p>{selection.capture.quote.slice(0, 60)}</p>
+          {/* Colour-only swatches: the letter label is gone, so the swatch is
+              now a decorative shape and must carry a real accessible name. */}
           {MARK_COLORS.map((color) => (
-            <button key={color} type="button" className={`${BTN_ICON} ${MARK_SWATCH[color] ?? ""}`} onClick={() => void addMark(color)} aria-label={`Mark selection ${color}`}>
-              {color.charAt(0).toUpperCase()}
-            </button>
+            <button
+              key={color}
+              type="button"
+              title={`Highlight ${color}`}
+              aria-label={`Highlight ${color}`}
+              className={`${BTN_ICON} ${MARK_SWATCH[color] ?? ""} border border-line`}
+              onClick={() => void addMark(color)}
+            />
           ))}
         </div>
       )}
@@ -925,6 +949,30 @@ export function ReaderScreen({ pendingDocument, pendingRecord, onDocumentOpened 
         onDismiss={closePopover}
         packAttribution={null}
       />
+
+      {/* Highlights on this document, each removable. A mark could be created
+          but never deleted before this: deleteMark existed and nothing called
+          it, so a stray highlight was permanent. */}
+      {marks.length > 0 ? (
+        <nav className="reader__bookmarks" aria-label="Highlights">
+          <ul>
+            {marks.map((m) => (
+              <li key={m.id} className="flex items-center gap-1">
+                <span className={`inline-block size-3 shrink-0 rounded-sm border border-line ${MARK_SWATCH[m.color] ?? ""}`} aria-hidden="true" />
+                <span className="max-w-40 truncate text-[13px]">{m.anchor.quote}</span>
+                <button
+                  type="button"
+                  className={BTN_SM}
+                  onClick={() => void removeMark(m.id)}
+                  aria-label={`Remove highlight on "${m.anchor.quote.slice(0, 40)}"`}
+                >
+                  ✕
+                </button>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      ) : null}
 
       {/* Live region: bookmark and mark outcomes are announced, not just drawn. */}
       <div className="reader__visually-hidden" role="status" aria-live="polite">

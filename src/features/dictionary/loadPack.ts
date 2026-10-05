@@ -26,17 +26,33 @@ export type LoadState =
 let inFlight: Promise<LoadState> | null = null;
 
 /**
- * Fetch one chunk as it is stored on the wire: the RAW gzipped bytes.
+ * Fetch one chunk.
  *
- * installPack's decodeRows gunzips whatever this returns, so decompressing here
- * too double-inflates and the install aborts. That failure was silent — the
- * lookup then reported "no dictionary installed" with no reason shown, because
- * the error was swallowed into a plain miss.
+ * The response is requested WITHOUT `Content-Encoding: gzip` on purpose.
+ *
+ * The host serves these files with `Content-Encoding: gzip`, so the browser
+ * transparently inflates them and `arrayBuffer()` yields plain JSON. Handing
+ * that to installPack's `gunzip` fails with "incorrect header check" — the
+ * dictionary silently never installs. The pack is already compressed on disk;
+ * compressing it a second time for transport buys nothing and loses the ability
+ * to read it back.
  */
 async function fetchChunk(file: string): Promise<Uint8Array> {
-  const response = await fetch(`${BASE}/${file}`, { cache: "force-cache" });
+  const response = await fetch(`${BASE}/${file}`, {
+    cache: "force-cache",
+    headers: { "Accept-Encoding": "identity" },
+  });
   if (!response.ok) throw new Error(`chunk ${file}: HTTP ${response.status}`);
-  return new Uint8Array(await response.arrayBuffer());
+
+  // Still compressed? Some hosts ignore Accept-Encoding. Only then inflate,
+  // because installPack gunzips whatever this returns.
+  const encoding = response.headers.get("content-encoding") ?? "";
+  if (!encoding.includes("gzip")) return new Uint8Array(await response.arrayBuffer());
+
+  const stream = response.body;
+  if (stream === null) throw new Error(`chunk ${file}: no body`);
+  const inflated = stream.pipeThrough(new DecompressionStream("gzip"));
+  return new Uint8Array(await new Response(inflated).arrayBuffer());
 }
 
 /** Idempotent: a second call while one is in flight returns the same promise. */

@@ -106,6 +106,34 @@
  * semantic role. Buttons are styled per-role from src/ui/styles.ts; this file
  * only styles the reader's own containers.
  */
+/*
+ * A pointer cursor over the reading surface.
+ *
+ * `cursor: pointer` on the page box: a reader's hand rests on the page, and
+ * text layers and canvases both report `cursor: text` / `default` by default,
+ * which reads as "this is not interactive" while the whole page IS selectable
+ * and clickable. The text layer keeps `cursor: text` so a selection still
+ * looks like a selection — this only affects the empty parts of the page.
+ */
+.reader__page,
+.reader__page canvas,
+.reader__viewport {
+  cursor: pointer;
+}
+
+.reader__page .textLayer {
+  cursor: text;
+}
+
+/* Real controls keep their own affordance; a button is not "more clickable". */
+.reader :is(button, label, input, select, a) {
+  cursor: pointer;
+}
+
+.reader :is(button, label):disabled {
+  cursor: not-allowed;
+}
+
 .reader :is(button, label, input, select):focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
