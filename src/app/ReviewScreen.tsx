@@ -93,7 +93,9 @@ export function ReviewScreen() {
         <p className="mt-1 text-sm text-ink-soft">Recall the meaning first, then grade yourself honestly.</p>
       </header>
 
-      <div className="mt-5 flex flex-wrap items-start gap-2 rounded-xl border border-line bg-paper p-4">
+      {/* `items-end` aligns the buttons with the input instead of guessing a
+          margin that would drift when the label wraps */}
+      <div className="mt-5 flex flex-wrap items-end gap-2 rounded-xl border border-line bg-paper p-4">
         <label className="block">
           <span className={FIELD_LABEL}>Words per session</span>
           <input
@@ -106,10 +108,10 @@ export function ReviewScreen() {
             className={FIELD}
           />
         </label>
-        <button type="button" className={`${BTN_SECONDARY} mt-[1.375rem]`} onClick={() => void onSize()}>
+        <button type="button" className={BTN_SECONDARY} onClick={() => void onSize()}>
           Apply session size
         </button>
-        <button type="button" className={`${BTN_SECONDARY} mt-[1.375rem]`} onClick={() => void begin()}>
+        <button type="button" className={BTN_SECONDARY} onClick={() => void begin()}>
           Start over
         </button>
       </div>

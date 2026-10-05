@@ -235,17 +235,20 @@ function VocabularyRowView({ row, onSave }: { row: VocabularyRow; onSave: (row: 
           </span>
           Seen {row.occurrences.length === 0 ? "nowhere yet" : `${row.occurrences.length} time${row.occurrences.length === 1 ? "" : "s"}`}
         </summary>
+        {/* `sourcesUnavailable` is a property of the WORD, not of one
+            occurrence. Inside the loop it repeated on every row of the same
+            word, implying each sighting was broken. */}
+        {row.sourcesUnavailable && (
+          <p className="border-t border-line px-3 pt-2.5 text-xs text-ink-soft">
+            Some source books are no longer on this device; the saved words are kept.
+          </p>
+        )}
         <ul className="space-y-2.5 border-t border-line px-3 py-2.5">
           {row.occurrences.map((o) => (
             <li key={o.id}>
               <span className="block text-xs text-ink-soft">
                 {o.titleSnapshot}
                 {o.anchor.locator.kind === "pdf" && ` · page ${o.anchor.locator.pageIndex + 1}`}
-                {row.sourcesUnavailable && (
-                  <span className="ml-1.5 rounded-full border border-line bg-shell px-1.5 py-0.5 text-[11px] font-medium text-ink-soft">
-                    source unavailable
-                  </span>
-                )}
               </span>
               {o.sentence !== "" && <q className="mt-0.5 block font-read text-sm text-ink">{o.sentence}</q>}
             </li>

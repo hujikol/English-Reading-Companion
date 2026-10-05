@@ -305,9 +305,9 @@ export function LibraryScreen({ onOpenDocument }: LibraryScreenProps = {}) {
                   className={BTN_PRIMARY}
                   onClick={() => void onOpen(row.document.id)}
                   disabled={onOpenDocument === undefined || row.document.importState !== "ready"}
-                  aria-label={`Open ${row.document.title}${row.positionLabel === "" ? "" : `, ${row.positionLabel}`}`}
+                  aria-label={`Open ${row.document.title}${row.progression !== undefined ? ` at ${row.positionLabel}` : ""}`}
                 >
-                  {row.positionLabel === "" ? "Open" : `Open ${row.positionLabel}`}
+                  {row.progression === undefined ? "Open" : `Open at ${row.positionLabel}`}
                 </button>
                 <button type="button" className={BTN_QUIET} onClick={() => void onRemove(row.document.id)} aria-label={`Remove ${row.document.title}`}>
                   Remove
