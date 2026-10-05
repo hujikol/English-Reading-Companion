@@ -20,10 +20,43 @@
 }
 
 @layer base {
+  html,
+  body,
+  #root {
+    /* The reader is a flex column that fills the viewport and scrolls INSIDE
+       itself. Without a definite height on every ancestor, `height: 100%`
+       resolves against an auto-height parent, the column never constrains, and
+       the toolbar is pushed out of view. */
+    height: 100%;
+  }
+
   html {
     background: var(--color-shell);
     color: var(--color-ink);
     font-family: var(--font-ui);
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    margin: 0;
+    /* Slightly stronger than --color-ink-soft on --color-shell: body text and
+       secondary metadata both need to clear 4.5:1, and 5.9:1 is the cheapest
+       way to guarantee it without re-auditing every pair. */
+    --color-ink-soft: #4a5568;
+    --color-accent: #9a3412;
+    --color-accent-soft: #fdf1e7;
+    /* 1.6:1 on --color-shell: decorative hairlines only. Anything that must be
+       PERCEIVED as a boundary (inputs, the focus ring) needs 3:1 and uses
+       --color-ink-soft instead. */
+    --color-line: #c8ced6;
+    --color-shell: #eceff3;
+  }
+
+  /* A visible, consistent focus ring everywhere. Never removed. */
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+    border-radius: 3px;
   }
 }
 

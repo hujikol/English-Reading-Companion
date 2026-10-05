@@ -49,7 +49,7 @@ export function App() {
   };
 
   return (
-    <>
+    <div className="flex h-full min-h-0 flex-col">
       <nav aria-label="Sections" className="sticky top-0 z-40 border-b border-line bg-paper/90 backdrop-blur">
         <ul className="mx-auto flex max-w-6xl items-center gap-1 px-4 py-2">
           {TABS.map((t) => (
@@ -70,15 +70,23 @@ export function App() {
           ))}
         </ul>
       </nav>
-      {tab === "library" && <LibraryScreen onOpenDocument={openInReader} />}
-      {tab === "reader" &&
-        (pendingEpub === undefined ? (
-          <ReaderScreen pendingDocument={pendingDocument} pendingRecord={pendingRecord} />
-        ) : (
-          <EpubScreen key={pendingEpub.name} bytes={pendingEpub.bytes} fileName={pendingEpub.name} />
-        ))}
-      {tab === "vocabulary" && <VocabularyScreen />}
-      {tab === "review" && <ReviewScreen />}
-    </>
+      <div className="flex min-h-0 flex-1 flex-col">
+        {tab === "library" && <LibraryScreen onOpenDocument={openInReader} />}
+      </div>
+      <div className="flex min-h-0 flex-1 flex-col">
+        {tab === "reader" &&
+          (pendingEpub === undefined ? (
+            <ReaderScreen pendingDocument={pendingDocument} pendingRecord={pendingRecord} />
+          ) : (
+            <EpubScreen key={pendingEpub.name} bytes={pendingEpub.bytes} fileName={pendingEpub.name} />
+          ))}
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        {tab === "vocabulary" && <VocabularyScreen />}
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        {tab === "review" && <ReviewScreen />}
+      </div>
+    </div>
   );
 }

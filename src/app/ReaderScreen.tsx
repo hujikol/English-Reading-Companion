@@ -774,11 +774,36 @@ export function ReaderScreen({ pendingDocument, pendingRecord, onDocumentOpened 
 
         {open === undefined
                   ? null
-                  : // Every page gets a slot. Pages outside the render window render as
-                    // a spacer of the same height, so the scroll height is the real
-                    // document height and scrolling is continuous instead of collapsing
-                    // as pages unmount.
-                    Array.from({ length: pageCount }, (_, pageIndex) => {
+                  : viewMode === "single"
+                    // PAGED: exactly one page, no stack. Rendering a slot per
+                    // page made "next page" scroll into a column of placeholders
+                    // instead of changing the page, which is what paged mode is
+                    // for. Continuous below keeps the stack.
+                    ? [visiblePage].map((pageIndex) => (
+                        <PdfPage
+                          key={pageIndex}
+                          pageIndex={pageIndex}
+                          widthCss={plan.cssSize.widthCss}
+                          heightCss={plan.cssSize.heightCss}
+                          scale={plan.renderScale}
+                          getPage={getPage}
+                          marks={marks}
+                          pageText={pageText.get(pageIndex)}
+                          registerCancel={(index, cancel) => {
+                            if (cancel === undefined) cancels.current.delete(index);
+                            else cancels.current.set(index, cancel);
+                          }}
+                          registerPageBox={registerPageBox}
+                          reportPixelSize={reportPixelSize}
+                          onTextLayerReady={onTextLayerReady}
+                          onRelease={onRelease}
+                        />
+                      ))
+                    // CONTINUOUS: every page gets a slot. Pages outside the
+                    // render window are spacers of the same height, so the
+                    // scroll height is the real document height and scrolling is
+                    // continuous instead of collapsing as pages mount and unmount.
+                    : Array.from({ length: pageCount }, (_, pageIndex) => {
                       const mounted = plan.keep.includes(pageIndex);
                       if (!mounted) {
                         // Instagram-style: a page inside the prefetch range shows
