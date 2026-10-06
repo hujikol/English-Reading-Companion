@@ -36,27 +36,22 @@ let inFlight: Promise<LoadState> | null = null;
  * compressing it a second time for transport buys nothing and loses the ability
  * to read it back.
  */
+/**
+ * Fetch one chunk as raw bytes. Does NOT decompress.
+ *
+ * The host may serve these files with `Content-Encoding: gzip` (the browser
+ * inflates transparently, so arrayBuffer() yields JSON), or with
+ * Accept-Encoding: identity (still gzipped). `decodeRows` in db.ts handles
+ * both via magic-byte detection, so this function returns whatever the
+ * browser gives us without guessing.
+ */
 async function fetchChunk(file: string): Promise<Uint8Array> {
   const response = await fetch(`${BASE}/${file}`, {
     cache: "force-cache",
     headers: { "Accept-Encoding": "identity" },
   });
   if (!response.ok) throw new Error(`chunk ${file}: HTTP ${response.status}`);
-
-  const bytes = new Uint8Array(await response.arrayBuffer());
-  // A host that honours Accept-Encoding: identity returns the file as stored
-  // (still gzipped, magic 1f 8b). A host that ignores it transparently inflates
-  // the Content-Encoding: gzip body, so arrayBuffer() already yields JSON.
-  // Trust the magic bytes, not the header — installPack gunzips what this
-  // hands back, so returning already-inflated JSON here reproduces the
-  // "incorrect header check" double-decompression bug.
-  if (bytes.length >= 2 && bytes[0] === 0x1f && bytes[1] === 0x8b) {
-    const stream = response.body;
-    if (stream === null) throw new Error(`chunk ${file}: no body`);
-    const inflated = stream.pipeThrough(new DecompressionStream("gzip"));
-    return new Uint8Array(await new Response(inflated).arrayBuffer());
-  }
-  return bytes;
+  return new Uint8Array(await response.arrayBuffer());
 }
 
 /** Idempotent: a second call while one is in flight returns the same promise. */

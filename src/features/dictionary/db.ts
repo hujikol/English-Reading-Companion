@@ -95,8 +95,17 @@ export const aliasRowsFor = (row: EntryRow): AliasRow[] =>
     .map((alias) => ({ alias, packVersion: row.packVersion, normalizedHeadword: row.normalizedHeadword }))
     .sort((a, b) => (a.alias < b.alias ? -1 : a.alias > b.alias ? 1 : 0));
 
-const decodeRows = async (bytes: Uint8Array): Promise<EntryRow[]> =>
-  (JSON.parse(new TextDecoder().decode(await gunzip(bytes))) as { rows: EntryRow[] }).rows;
+/** Decode chunk bytes that may or may not still be gzip-compressed.
+
+`fetchChunk` returns raw gzip bytes when the host honoured Accept-Encoding:
+identity, or already-inflated JSON when it didn't. This handles both without
+guessing from headers.
+*/
+const decodeRows = async (bytes: Uint8Array): Promise<EntryRow[]> => {
+  const isGzip = bytes.length >= 2 && bytes[0] === 0x1f && bytes[1] === 0x8b;
+  const payload = isGzip ? await gunzip(bytes) : bytes;
+  return (JSON.parse(new TextDecoder().decode(payload)) as { rows: EntryRow[] }).rows;
+};
 
 // ---------------------------------------------------------------- activation
 
