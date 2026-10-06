@@ -285,6 +285,7 @@ const boundaryAt = (text: string, i: number): boolean => {
  * Sentence bounds inside one block. ponytail: abbreviations ("Mr.") and
  * decimals split early — the named ceiling. Track B's selection work is where
  * Section 7 puts `Intl.Segmenter`; swap it in there, not here.
+  * upgrade: if selection on a real book splits a sentence at "Mr." or a decimal, replace this with `Intl.Segmenter` rather than growing the abbreviation list.
  */
 const sentenceAround = (text: string, block: { start: number; end: number }, from: number, to: number): string | null => {
   let open = block.start;

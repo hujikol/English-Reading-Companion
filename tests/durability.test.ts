@@ -15,6 +15,8 @@ describe("durability tiers", () => {
 
   it("covers exactly the Section 12 tables", () => {
     // ponytail: explicit list, not a count — a count passes while a table goes missing.
+    // upgrade: a table added or renamed updates this list in the same commit; this
+    // test failing is the intended signal, not a flake to relax.
     expect(Object.keys(DURABILITY).sort()).toEqual([
       "aiCache",
       "assets",

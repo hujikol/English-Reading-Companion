@@ -112,6 +112,7 @@ export type Match = {
  * follows it, so `offsets[end]` may point at the source character one position
  * late. `trimEnd` on the recovered original slice is what makes the mapping
  * usable; a full char-by-char re-scan buys nothing until a fixture proves it.
+  * upgrade: if a mark or selection lands one character short, suspect this lazy-space emission before changing anything else.
  */
 export function findMatches(haystack: Normalized, needle: Normalized): Match[] {
   const out: Match[] = [];

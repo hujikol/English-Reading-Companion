@@ -66,6 +66,8 @@ export type BuiltPack = { manifest: PackManifest; chunks: { file: string; bytes:
 
 // ponytail: fixed list of lookalikes. A full Unicode confusable table is a
 // different trade; add when a real source is found to contain more.
+// upgrade: a real dictionary source containing a lookalike this list misses
+// means replacing the list with the full Unicode confusables table.
 const APOSTROPHES = /[\u2018\u2019\u02bc\u02b9\u0060\u00b4]/g;
 
 /** Lookup key for a surface form. Displayed forms are never altered. */
@@ -80,6 +82,8 @@ export const sha256Hex = async (bytes: Uint8Array): Promise<string> => {
   // ponytail: copy into a fresh ArrayBuffer — TS 5.7's Uint8Array is generic
   // over its backing buffer, so a Uint8Array<ArrayBufferLike> is not a
   // BufferSource and crypto.subtle.digest rejects it.
+  // upgrade: off TypeScript 5.7+ or without the strict generic, this copy is
+  // dead — delete it.
   const src = new Uint8Array(bytes).buffer;
   const digest = await crypto.subtle.digest("SHA-256", src);
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
@@ -95,6 +99,7 @@ async function pipe(data: Uint8Array, codec: Codec): Promise<Uint8Array> {
   let size = 0;
   const reader = codec.readable.getReader();
   // ponytail: same ArrayBuffer copy as sha256Hex — see note there.
+  // upgrade: same trigger as that note — off TypeScript 5.7+, delete this copy too.
   void writer.write(new Uint8Array(data).buffer).then(
     () => writer.close(),
     (e: unknown) => writer.abort(e),

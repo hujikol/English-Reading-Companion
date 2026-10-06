@@ -12,7 +12,6 @@ progress and manages bookmarks.
 | `selection.ts` | Reads the live DOM selection out of a mounted text layer and calls `features/selection/anchor.ts` to build the durable `Anchor`. |
 | `PdfPage.tsx` | One mounted page: canvas + PDF.js text layer + marks overlay. Renders, reports its pixel size, releases everything on unmount. |
 | `stores.ts` | Dexie-backed `ProgressStore`, bookmark writer, mark writer. Supplies persistence only; the policy lives in the feature modules. |
-| `ReaderShell.tsx` | The whole app shell: the reader, and nothing else. |
 | `../ReaderScreen.tsx` | The screen: file open, windowing, selection, marks, progress, bookmarks. |
 
 Nothing in this directory duplicates logic that already exists and is already tested:

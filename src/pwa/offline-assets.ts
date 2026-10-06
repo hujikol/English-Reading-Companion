@@ -171,21 +171,6 @@ export function toAssetManifest(inventory: Inventory): AssetManifest {
   return { appVersion: inventory.appVersion, assets };
 }
 
-/** Same-origin URLs the service worker installs during `install`. */
-export function precacheUrls(inventory: Inventory): string[] {
-  return inventory.assets.map((a) => a.url);
-}
-
-/** Bytes for one group, or 0 when the group is absent from this build. */
-export function groupBytes(inventory: Inventory, group: AssetGroupId): number {
-  return inventory.groups.find((g) => g.group === group)?.bytes ?? 0;
-}
-
-/** Compressed bytes for one group — the figure Section 16 budgets. */
-export function groupGzipBytes(inventory: Inventory, group: AssetGroupId): number {
-  return inventory.groups.find((g) => g.group === group)?.gzipBytes ?? 0;
-}
-
 /** True only when every declared asset carries bytes and a sha384 digest. */
 export function isWellFormed(inventory: Inventory): boolean {
   if (inventory.schema !== INVENTORY_SCHEMA) return false;

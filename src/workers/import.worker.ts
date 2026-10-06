@@ -24,7 +24,6 @@ export type ImportWorkerResponse =
  * Requesting a head buffer rather than the whole file back to the main thread:
  * only the first KiB is needed for signature and MIME cross-checks.
  */
-export const HEAD_BYTES = 1024;
 
 /**
  * ponytail: no worker pool, no chunked streaming. One file at a time, whole
@@ -39,17 +38,6 @@ export async function handleHash(req: ImportWorkerRequest): Promise<ImportWorker
   } catch (e) {
     return { requestId: req.requestId, ok: false, error: e instanceof Error ? e.message : "hashing failed" };
   }
-}
-
-/**
- * Read the head and the full buffer as SEPARATE reads. Section 6: a transferred
- * ArrayBuffer detaches in its sender, so the bytes are never handed twice from
- * one transfer — the File stays the durable source and each consumer reads it.
- */
-export async function readForImport(file: Blob): Promise<{ head: Uint8Array; bytes: ArrayBuffer }> {
-  const head = new Uint8Array(await file.slice(0, HEAD_BYTES).arrayBuffer());
-  const bytes = await file.arrayBuffer();
-  return { head, bytes };
 }
 
 // Only install the listener when actually running inside a worker.

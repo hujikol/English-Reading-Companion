@@ -16,6 +16,8 @@ createRoot(document.getElementById("root")!).render(
 // block the reading UI — a failed registration is a status, not an error.
 // Registration is also a no-op outside a secure context, so dev over plain
 // http://localhost stays quiet.
+// upgrade: if first paint is ever blocked, or reading needs the SW installed
+// to start, await the registration before render.
 void registerServiceWorker({
   // Quota recovery may only ever evict `derived` tables. The list comes from
   // the durability contract, so a new table is covered by default.

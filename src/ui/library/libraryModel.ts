@@ -13,8 +13,6 @@ import type { DocumentRecord, ProgressRecord } from "../../db/index.ts";
 import { newDocumentId, reconcileDuplicate, sha256, type Sha256 } from "../../features/library/identity.ts";
 import { validatePdfImport, type DeviceTier, type ImportError, type ImportNotice, type ImportValidation } from "../../features/library/validate.ts";
 
-export const SUPPORTED_EXTENSIONS = [".pdf", ".epub", ".txt", ".md", ".markdown"] as const;
-
 export type ImportSource = { name: string; type: string; size: number; head: Uint8Array; bytes: Uint8Array };
 
 /** Filename is untrusted text: it decides only which adapter runs, never whether bytes are trusted. */

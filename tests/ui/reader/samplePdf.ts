@@ -5,6 +5,7 @@
  *
  * ponytail: no dependency, no font embedding, no compression. Enough to prove
  * rendering, paging, selection and bookmarks; not a PDF library.
+  * upgrade: if a test needs a real-world PDF (embedded fonts, images, columns), generate one there rather than adding a PDF-writing dependency to src/.
  */
 
 const latin1 = (text: string): number[] => {

@@ -112,15 +112,6 @@ export type RendererAdapter = {
   close(): void;
 };
 
-/** What a real EPUB renderer must implement on top of epub.js. Not yet built. */
-export type EpubRendererDependencies = {
-  /** epub.js pinned release; see the dependency report. */
-  readonly epubJsVersion: string;
-  /** Managed blob-URL registry for validated local assets. */
-  registerAsset(href: string, bytes: Uint8Array): string | null;
-  revokeAll(): void;
-};
-
 /**
  * Object-URL lifetime guard. The adapter's `close()` must have revoked every
  * URL it created; this makes the obligation explicit and testable without a

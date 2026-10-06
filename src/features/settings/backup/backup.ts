@@ -285,5 +285,4 @@ function depth(value: unknown, level: number): number {
   return deepest;
 }
 
-export const backupSections = SECTIONS;
 export { canonical as canonicalJson, sha256 };

@@ -55,6 +55,8 @@ export async function loadConfig(path: string): Promise<BuildConfig> {
   // noUncheckedIndexedAccess widens these back to `string | undefined`; the loop
   // above proved each is a non-empty string, so narrow once instead of casting
   // per field.
+  // upgrade: if the pack build is ever invoked from another working directory,
+  // re-verify this holds before trusting the resolved paths.
   const { source, outDir } = raw as Record<(typeof need)[number], string>;
   return { ...(raw as BuildConfig), source: resolve(dirname(path), source), outDir: resolve(dirname(path), outDir) };
 }

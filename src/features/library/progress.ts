@@ -32,8 +32,6 @@ export type ProgressStore = {
   write(row: ProgressRow, expectedRevision: number): Promise<void>;
 };
 
-export type ProgressWrite = (documentId: string, locator: Locator, progression: number) => Promise<SaveOutcome>;
-
 export type ProgressState = {
   documentId: string;
   /** persisted location, or undefined when nothing has been written yet */

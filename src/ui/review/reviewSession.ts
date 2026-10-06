@@ -49,8 +49,6 @@ export const isSessionComplete = (s: ReviewSession): boolean => s.index >= s.que
 
 export const reveal = (s: ReviewSession): ReviewSession => ({ ...s, revealed: true });
 
-export const hideAnswer = (s: ReviewSession): ReviewSession => ({ ...s, revealed: false });
-
 export type SessionSizeOutcome = { kind: "saved"; size: number } | { kind: "failed"; message: string };
 
 /** `setDailySessionSize` throws RangeError outside 1..200; the UI must show that, not a crash. */

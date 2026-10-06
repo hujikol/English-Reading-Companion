@@ -9,7 +9,7 @@
 
 import type { AppDB } from "../../../src/db/index.ts";
 import type { Occurrence, Vocabulary } from "../../contracts/index.ts";
-import { editMeaning, listVocabulary, occurrencesOf, setNote } from "../../features/vocabulary/capture.ts";
+import { editMeaning, listVocabulary, occurrencesOf } from "../../features/vocabulary/capture.ts";
 
 export type VocabularyRow = {
   vocabulary: Vocabulary;
@@ -68,9 +68,6 @@ export async function loadVocabulary(
   return { rows: filtered, total: rows.length, filtered: filtered.length, query: filter.query, status: filter.status };
 }
 
-/** "edited" is a comparison, not a stored flag: the meaning IS the current answer. */
-export const isEdited = (row: VocabularyRow): boolean => row.meaningEdited;
-
 export type EditOutcome = { kind: "saved"; vocabulary: Vocabulary } | { kind: "failed"; message: string };
 
 /** Rejection keeps the row on screen and unsaved; it never reads Saved (section 4). */
@@ -81,14 +78,6 @@ export async function saveMeaning(store: AppDB, vocabularyId: string, meaning: s
     return { kind: "saved", vocabulary: await editMeaning(store, vocabularyId, trimmed) };
   } catch (e) {
     return { kind: "failed", message: e instanceof Error ? e.message : "The meaning could not be saved." };
-  }
-}
-
-export async function saveNote(store: AppDB, vocabularyId: string, note: string): Promise<EditOutcome> {
-  try {
-    return { kind: "saved", vocabulary: await setNote(store, vocabularyId, note) };
-  } catch (e) {
-    return { kind: "failed", message: e instanceof Error ? e.message : "The note could not be saved." };
   }
 }
 

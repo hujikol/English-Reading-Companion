@@ -45,17 +45,5 @@ export const BTN_SECONDARY = `${BTN} border border-line bg-paper text-ink hover:
 /** Quiet: text only. For destructive or low-stakes actions a screen is full of. */
 export const BTN_QUIET = `${BTN_BASE} min-h-11 px-3 py-2 text-sm text-ink-soft hover:bg-shell hover:text-ink`;
 
-/** Danger: destructive, and it says so in colour and weight. */
-export const BTN_DANGER = `${BTN_BASE} min-h-11 px-3 py-2 text-sm font-medium text-danger hover:bg-danger/10`;
-
-/**
- * Card surface. `shadow-sm` rather than a neumorphic emboss: soft inward
- * shadows on body text fail contrast, and this app is read for long stretches.
- */
-export const CARD = "rounded-xl border border-line bg-paper shadow-sm";
-
-/** Readable body text: 1.65 line-height, comfortable at 16px. */
-export const PROSE = "text-[15px] leading-[1.65] text-ink";
-
 /** Secondary metadata. 13px, still above the 12px floor. */
 export const META = "text-[13px] leading-relaxed text-ink-soft";

@@ -21,7 +21,7 @@
 
 import { computeReadiness, type AssetManifest, type InstalledAsset, type Readiness } from "./manifest.ts";
 import { initialInstallState, reduceInstall, type InstallState } from "./install.ts";
-import { INVENTORY_URL, SW_SCOPE, SW_URL, parseInventory, requiredFiles, toAssetManifest, type Inventory } from "./offline-assets.ts";
+import { INVENTORY_URL, SW_SCOPE, SW_URL, parseInventory, toAssetManifest, type Inventory } from "./offline-assets.ts";
 import { recoverFromQuota } from "../features/settings/storage/quota.ts";
 import { isEvictable, type TableName } from "../contracts/index.ts";
 
@@ -283,9 +283,4 @@ export async function registerServiceWorker(options: RegisterOptions = {}): Prom
     setReading: (reading) => send({ type: "reading-changed", reading }),
     destroy: () => listeners.clear(),
   };
-}
-
-/** Bytes the build declared, for the "overage before download" message. */
-export function declaredInstallSize(inventory: Inventory): { files: number; bytes: number } {
-  return { files: requiredFiles(inventory).length, bytes: inventory.totals.bytes };
 }

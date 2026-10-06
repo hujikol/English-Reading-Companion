@@ -87,8 +87,3 @@ async function install(): Promise<LoadState> {
     return { kind: "absent", reason: error instanceof Error ? error.message : String(error) };
   }
 }
-
-/** Whether a pack is present, for UI that wants to say so up front. */
-export async function dictionaryReady(): Promise<boolean> {
-  return (await activePack(dictDb)) !== null;
-}

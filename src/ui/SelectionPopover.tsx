@@ -309,21 +309,3 @@ export function SelectionPopover(props: SelectionPopoverProps) {
     </div>
   );
 }
-
-/**
- * The reader-facing wrapper: owns the selection -> open transition.
- *
- * Kept separate from the card so the reader (Track D) can mount the card without
- * owning any of its behaviour.
- */
-export function useSelectionPopover(
-  current: PopoverState,
-  setState: (next: PopoverState) => void,
-): { state: PopoverState; show: (selection: Selection) => void; dismiss: () => void } {
-  const show = useCallback(
-    (selection: Selection) => setState(openPopover(current, selection)),
-    [current, setState],
-  );
-  const dismiss = useCallback(() => setState(dismissPopover(current)), [current, setState]);
-  return { state: current, show, dismiss };
-}

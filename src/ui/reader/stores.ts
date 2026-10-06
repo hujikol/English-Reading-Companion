@@ -87,7 +87,3 @@ export async function recordDocument(record: {
 export const touchDocument = async (documentId: string, now: number = Date.now()): Promise<void> => {
   await db.documents.update(documentId, { lastOpenedAt: now });
 };
-
-export const readDocument = (documentId: string) => db.documents.get(documentId);
-
-export const readAsset = (documentId: string) => db.assets.get(documentId);
