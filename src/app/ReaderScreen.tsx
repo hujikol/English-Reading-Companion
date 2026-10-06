@@ -102,10 +102,14 @@ export type ReaderScreenProps = {
    * a reopen from becoming a second library entry with no progress.
    */
   pendingRecord?: DocumentRecord | undefined;
+  /** Pre-loaded dictionary pack attribution for the lookup card footer. */
+  packAttribution?: { source: string; license: string } | null;
+  /** True while the dictionary is still loading at app startup. */
+  dictLoading?: boolean;
   onDocumentOpened?: (documentId: string) => void;
 };
 
-export function ReaderScreen({ pendingDocument, pendingRecord, onDocumentOpened }: ReaderScreenProps = {}) {
+export function ReaderScreen({ pendingDocument, pendingRecord, packAttribution = null, dictLoading = false, onDocumentOpened }: ReaderScreenProps = {}) {
   const [status, setStatus] = useState<Status>("empty");
   const [errors, setErrors] = useState<ImportError[]>([]);
   const [notices, setNotices] = useState<ImportNotice[]>([]);
@@ -1048,7 +1052,8 @@ export function ReaderScreen({ pendingDocument, pendingRecord, onDocumentOpened 
         lookupSurface={lookupSurface}
         store={db}
         onDismiss={closePopover}
-        packAttribution={null}
+        packAttribution={packAttribution}
+        dictLoading={dictLoading}
       />
 
       {/* Highlights on this document, each removable. A mark could be created

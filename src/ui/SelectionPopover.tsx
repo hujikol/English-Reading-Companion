@@ -54,30 +54,38 @@ export type SelectionPopoverProps = {
   /** disabled by default: an unconfigured provider cannot be reached at all */
   ai?: AiAvailability;
   packAttribution?: { source: string; license: string } | null;
+  /** True while the dictionary is being installed at app startup; the card
+      avoids re-triggering install on a miss and shows progress instead. */
+  dictLoading?: boolean;
   onDismiss: (reason: "escape" | "outside" | "selection-change" | "scroll" | "action") => void;
   /** focus the card after a keyboard activation; never called on hover/selection */
   autoFocus?: boolean;
 };
 
-const POSITION_ABOVE = "bottom";
-
 /** Keep the card inside the viewport without moving it under the learner's cursor. */
 function placementFor(rect: { top: number; left: number; bottom: number; right: number }): { top: number; left: number; position: string } {
-  const width = 340;
-  const height = 260;
+  const width = 360;
   const viewportWidth = typeof window === "undefined" ? 1024 : window.innerWidth;
   const viewportHeight = typeof window === "undefined" ? 768 : window.innerHeight;
   const left = Math.max(8, Math.min(rect.left, viewportWidth - width - 8));
-  const above = rect.top - height - 12;
+  // Pop the card just below the selection; fall back above if it would overflow
+  // the viewport bottom. The card height is measured after render, so a fixed
+  // estimate is replaced here on the next frame by a ResizeObserver that nudges
+  // it back inside if it drifted past the viewport edge.
+  const estimatedHeight = 300;
+  const above = rect.top - estimatedHeight - 12;
+  const below = rect.bottom + 12;
+  const top = above >= 8 ? rect.top - estimatedHeight - 12 : below;
+  const position = above >= 8 && below + estimatedHeight > viewportHeight ? "above" : "below";
   return {
     left,
-    top: above >= 8 ? rect.top : rect.bottom + 12,
-    position: above >= 8 ? POSITION_ABOVE : "top",
+    top,
+    position,
   };
 }
 
 export function SelectionPopover(props: SelectionPopoverProps) {
-  const { state, onStateChange, lookupSurface, store, ai, packAttribution, onDismiss, autoFocus } = props;
+  const { state, onStateChange, lookupSurface, store, ai, packAttribution, dictLoading, onDismiss, autoFocus } = props;
   const cardRef = useRef<HTMLDivElement | null>(null);
   const headingId = useId();
   const meaningId = useId();
@@ -214,7 +222,7 @@ export function SelectionPopover(props: SelectionPopoverProps) {
         </button>
       </div>
 
-      {state.status === "looking-up" && <p className="mb-3 text-sm text-ink-soft">Looking up…</p>}
+      {state.status === "looking-up" && <p className="mb-3 text-sm text-ink-soft">{dictLoading ? "Loading dictionary…" : "Looking up…"}</p>}
 
       {state.status === "failed" && (
         <p className="mb-3 rounded-lg border border-danger/30 bg-danger/5 p-2 text-sm text-danger">
@@ -301,9 +309,13 @@ export function SelectionPopover(props: SelectionPopoverProps) {
       )}
 
       <footer className="mt-3 flex items-center justify-between gap-2 border-t border-line pt-2 text-xs text-ink-soft">
-        {packAttribution === null || packAttribution === undefined
-          ? "Local lookup — no dictionary pack installed"
-          : `${packAttribution.source} · ${packAttribution.license}`}
+        {packAttribution === null || packAttribution === undefined ? (
+          state.status === "failed"
+            ? `Dictionary install failed: ${state.lookupError ?? "unknown error"}`
+            : "Local lookup — no dictionary pack installed"
+        ) : (
+          `${packAttribution.source} · ${packAttribution.license}`
+        )}{" "}
         {selection.positionLabel !== undefined && <span> · {selection.positionLabel}</span>}
       </footer>
     </div>

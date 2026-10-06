@@ -141,7 +141,7 @@
 
 .reader__popover {
   position: fixed;
-  z-index: 10;
+  z-index: 40;
   display: flex;
   gap: 6px;
   padding: 6px;

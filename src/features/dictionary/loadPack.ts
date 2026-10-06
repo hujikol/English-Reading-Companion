@@ -2,10 +2,9 @@
  * Fetch and install the shipped dictionary pack.
  *
  * The pack is built at release time into `public/dictionary/` and precached by
- * the service worker, so this runs entirely offline. It is deliberately NOT run
- * on app start: installing 17,876 rows is real work, and a reader who never
- * looks a word up should not pay for it. It runs when a lookup first misses on
- * "no active pack", and again only when a newer version appears.
+ * the service worker, so this runs entirely offline. It is pre-loaded at app
+ * startup so the first lookup is instant, and a broken pack is reported in the
+ * header instead of inside the popover card.
  *
  * Every failure path here is a status, never a thrown error at the UI: a broken
  * or absent pack must leave the reader reading, with the card reporting that
@@ -19,7 +18,7 @@ import type { PackManifest } from "./pack.ts";
 const BASE = "/dictionary";
 
 export type LoadState =
-  | { kind: "ready"; packVersion: string; headwords: number }
+  | { kind: "ready"; packVersion: string; headwords: number; attribution: { source: string; license: string; licenseUrl: string } }
   | { kind: "absent"; reason: string }
   | { kind: "busy" };
 
@@ -44,15 +43,20 @@ async function fetchChunk(file: string): Promise<Uint8Array> {
   });
   if (!response.ok) throw new Error(`chunk ${file}: HTTP ${response.status}`);
 
-  // Still compressed? Some hosts ignore Accept-Encoding. Only then inflate,
-  // because installPack gunzips whatever this returns.
-  const encoding = response.headers.get("content-encoding") ?? "";
-  if (!encoding.includes("gzip")) return new Uint8Array(await response.arrayBuffer());
-
-  const stream = response.body;
-  if (stream === null) throw new Error(`chunk ${file}: no body`);
-  const inflated = stream.pipeThrough(new DecompressionStream("gzip"));
-  return new Uint8Array(await new Response(inflated).arrayBuffer());
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  // A host that honours Accept-Encoding: identity returns the file as stored
+  // (still gzipped, magic 1f 8b). A host that ignores it transparently inflates
+  // the Content-Encoding: gzip body, so arrayBuffer() already yields JSON.
+  // Trust the magic bytes, not the header — installPack gunzips what this
+  // hands back, so returning already-inflated JSON here reproduces the
+  // "incorrect header check" double-decompression bug.
+  if (bytes.length >= 2 && bytes[0] === 0x1f && bytes[1] === 0x8b) {
+    const stream = response.body;
+    if (stream === null) throw new Error(`chunk ${file}: no body`);
+    const inflated = stream.pipeThrough(new DecompressionStream("gzip"));
+    return new Uint8Array(await new Response(inflated).arrayBuffer());
+  }
+  return bytes;
 }
 
 /** Idempotent: a second call while one is in flight returns the same promise. */
@@ -67,7 +71,7 @@ async function install(): Promise<LoadState> {
   try {
     const active = await activePack(dictDb);
     if (active !== null) {
-      return { kind: "ready", packVersion: active.packVersion, headwords: active.headwordCount };
+      return { kind: "ready", packVersion: active.packVersion, headwords: active.headwordCount, attribution: { source: active.license, license: active.licenseUrl, licenseUrl: active.licenseUrl } };
     }
 
     const response = await fetch(`${BASE}/manifest.json`, { cache: "force-cache" });
@@ -82,7 +86,7 @@ async function install(): Promise<LoadState> {
     // against the manifest's row count and hash, and only then flips active. A
     // failure part-way leaves any previous pack in place.
     const installed = await installPack(dictDb, manifest, { fetchChunk });
-    return { kind: "ready", packVersion: installed.packVersion, headwords: installed.headwordCount };
+    return { kind: "ready", packVersion: installed.packVersion, headwords: installed.headwordCount, attribution: { source: installed.license, license: installed.licenseUrl, licenseUrl: installed.licenseUrl } };
   } catch (error: unknown) {
     return { kind: "absent", reason: error instanceof Error ? error.message : String(error) };
   }

@@ -1,9 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { LibraryScreen } from "./LibraryScreen.tsx";
 import { ReviewScreen } from "./ReviewScreen.tsx";
 import { VocabularyScreen } from "./VocabularyScreen.tsx";
 import { ReaderScreen } from "./ReaderScreen.tsx";
 import { EpubScreen } from "./EpubScreen.tsx";
+import { loadDictionary } from "../features/dictionary/loadPack.ts";
+import type { LoadState } from "../features/dictionary/loadPack.ts";
 import type { DocumentRecord } from "../db/index.ts";
 
 type Tab = "library" | "reader" | "vocabulary" | "review";
@@ -30,6 +32,24 @@ export function App() {
   // takes a File; the EPUB renderer takes bytes, so both are kept in step here
   // rather than making each screen re-read the blob.
   const [pendingEpub, setPendingEpub] = useState<{ bytes: Uint8Array; name: string } | undefined>(undefined);
+  // Pre-load the dictionary at startup so the first lookup is instant, and a
+  // broken pack is reported in the header instead of inside the popover card.
+  const [dictState, setDictState] = useState<LoadState>({ kind: "busy" });
+
+  useEffect(() => {
+    let live = true;
+    loadDictionary().then((state) => {
+      if (live) setDictState(state);
+    });
+    return () => {
+      live = false;
+    };
+  }, []);
+
+  const dictLoading = dictState.kind === "busy";
+  const packAttribution = dictState.kind === "ready"
+    ? { source: dictState.attribution.source, license: dictState.attribution.license }
+    : null;
 
   const openInReader = (file: File, document?: DocumentRecord) => {
     const isEpub = /\.epub$/i.test(file.name);
@@ -69,6 +89,16 @@ export function App() {
             </li>
           ))}
         </ul>
+        {dictState.kind === "busy" && (
+          <div className="mx-auto max-w-6xl px-4 py-1 text-xs text-ink-soft">
+            Loading dictionary…
+          </div>
+        )}
+        {dictState.kind === "absent" && (
+          <div className="mx-auto max-w-6xl px-4 py-1 text-xs text-danger">
+            Dictionary not ready: {dictState.reason}
+          </div>
+        )}
       </nav>
       {/* ONE panel at a time. Rendering all four and hiding three with `flex-1`
           left the invisible ones claiming height, which is why the header
@@ -77,7 +107,7 @@ export function App() {
         {tab === "library" && <LibraryScreen onOpenDocument={openInReader} />}
         {tab === "reader" &&
           (pendingEpub === undefined ? (
-            <ReaderScreen pendingDocument={pendingDocument} pendingRecord={pendingRecord} />
+            <ReaderScreen pendingDocument={pendingDocument} pendingRecord={pendingRecord} packAttribution={packAttribution} dictLoading={dictLoading} />
           ) : (
             <EpubScreen key={pendingEpub.name} bytes={pendingEpub.bytes} fileName={pendingEpub.name} />
           ))}
