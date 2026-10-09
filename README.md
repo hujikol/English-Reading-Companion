@@ -9,8 +9,6 @@ A local-first reading companion for Indonesian learners reading English novels, 
 In development. The reader, dictionary lookup, vocabulary and review flows work;
 see [known limitations](docs/known-limitations.md) for the remaining gaps.
 
-`IDEA.md` holds the full implementation plan (scope, architecture, performance budgets, phases, risks). It is git-ignored as a personal working document — it lives in your local checkout, not in the repository.
-
 ## What it does
 
 - Open a **local** file — PDF, EPUB, TXT, Markdown. Nothing is uploaded.
