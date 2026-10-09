@@ -11,12 +11,13 @@ import { readFileSync } from "node:fs";
  * whatever it is handed, so passing those bytes straight through fails with
  * "incorrect header check" and the dictionary silently never installs.
  *
- * loadPack solves it by requesting `Accept-Encoding: identity` and inflating
+ * The installer checks the gzip magic bytes and inflates
  * only if the response is still compressed. Both host behaviours are modelled
  * here, because a real deployment may be either.
  */
 
-const CHUNK = "packs/en-id/pack-0.1.0-0000.json.gz";
+const manifest = JSON.parse(readFileSync("public/dictionary/manifest.json", "utf8")) as { chunks: { file: string }[] };
+const CHUNK = `public/dictionary/${manifest.chunks[0]!.file}`;
 const raw = readFileSync(CHUNK);
 
 describe("dictionary chunk bytes", () => {

@@ -47,6 +47,8 @@ npm run offline:smoke # verify built offline assets and size budgets
 
 Node 24. If `node -v` reports v16, `/usr/local/bin/node` is shadowing nvm — run `source ~/.nvm/nvm.sh && nvm use 24` first. The same trap breaks `npm test` with `crypto.getRandomValues is not a function`.
 
+CI runs on Ubuntu 24.04 with Node 24. Tests use the tracked dictionary in `public/dictionary/`; ignored local `packs/` files are not required.
+
 ## Product rules
 
 - Preserve the original English alongside any explanation. Never replace the reading text with a translation.
