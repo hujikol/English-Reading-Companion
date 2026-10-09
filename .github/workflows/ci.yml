@@ -55,23 +55,17 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
-      - name: Unit and integration tests
-        run: npm test
-
+      # Offline tests inspect dist/, so build before running the suite.
       - name: Build production bundle
         run: npm run build
+
+      - name: Unit and integration tests
+        run: npm test
 
       # Runs after the build so it can measure and verify the bytes that
       # actually shipped, not a prediction of them.
       - name: Generate and verify the offline asset inventory
-        run: |
-          node src/pwa/offline-assets.build.ts inventory
-          node src/pwa/offline-assets.build.ts smoke
-
-      # The PWA tests assert against the generated inventory, so they run
-      # again here with dist/ present rather than only in the earlier step.
-      - name: Offline delivery tests against the built bundle
-        run: npx vitest run tests/pwa/
+        run: npm run offline:smoke
 
       - name: Upload build output
         uses: actions/upload-artifact@v4
@@ -113,14 +107,12 @@ jobs:
         run: npm run build
 
       - name: Delivery budget smoke check
-        run: |
-          node src/pwa/offline-assets.build.ts inventory
-          node src/pwa/offline-assets.build.ts smoke
+        run: npm run offline:smoke
 
       - name: Record compressed sizes as the benchmark artifact
         run: |
           mkdir -p test-results/benchmarks
-          node src/pwa/offline-assets.build.ts smoke > test-results/benchmarks/delivery-budgets.txt
+          npm run offline:smoke > test-results/benchmarks/delivery-budgets.txt
           cat test-results/benchmarks/delivery-budgets.txt
 
       - name: Upload benchmark record
@@ -153,9 +145,9 @@ jobs:
         run: npm ci
 
       # Section 21 blocks exploitable high/critical findings "unless an
-      # explicit, time-bounded exception is documented". The five known
-      # findings are all dev-only (vite/vitest/esbuild, reachable only via a
-      # local dev server) and the only fix is a breaking vite 8 + vitest 5
+      # explicit, time-bounded exception is documented". The six known
+      # findings are all dev-only (vite/vitest/esbuild/tinypool) and the
+      # suggested fix is a breaking vite 8 + vitest 5
       # upgrade. docs/known-limitations.md records that exception; this step
       # reports the real audit output and fails on anything NEW.
       - name: Audit production dependencies only

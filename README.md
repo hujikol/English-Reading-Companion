@@ -41,7 +41,7 @@ Explanation history preserves separate saved results, including repeated request
 npm ci
 npm run dev        # http://localhost:5173
 npm run build      # typecheck (node + app scopes) then vite build, then the offline inventory
-npm test           # vitest
+npm test           # vitest; run the build first (offline tests inspect dist/)
 npm run offline:smoke # verify built offline assets and size budgets
 ```
 

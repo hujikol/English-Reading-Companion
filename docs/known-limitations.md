@@ -38,24 +38,25 @@ read as "the performance budgets passed".
 
 ---
 
-## 6. npm audit: 5 dev-only advisories, deferred
+## 6. npm audit: 6 dev-only findings, deferred
 
-`npm audit` reports **5 findings**, all in the development toolchain, none in
+`npm audit` reports **6 findings**, all in the development toolchain, none in
 shipped application code:
 
 | Package | Severity | Reachable by |
 | --- | --- | --- |
 | `vitest` | critical | local test server / Vitest UI |
+| `tinypool` | critical | test worker options |
 | `vite` | high | local dev server, Windows-only UNC path handling |
 | `@vitest/mocker` | moderate | redirect mock, dev only |
 | `vite-node` | moderate | dev only |
 | `esbuild` | moderate | dev server request handling |
 
-Verified: `npm audit --omit=dev` reports **0** production vulnerabilities. None
+Verified on 2026-10-09: `npm audit --omit=dev` reports **0** production vulnerabilities after updating `fflate` to 0.8.3. None
 of these packages are bundled into `dist/`; they run only on a developer's
 machine.
 
-**Recommended fix is a breaking upgrade: `vite` 8.3.2 and `vitest` 5.0.3.**
+**Recommended fix is a breaking upgrade: `vite` 8.3.4 and `vitest` 5.0.3.**
 Both are major bumps that will require changing `vite.config.ts`, the vitest
 setup and the build scripts.
 
