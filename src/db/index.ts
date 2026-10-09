@@ -101,6 +101,13 @@ export class AppDB extends Dexie {
       semanticPages: "cacheKey, documentId, [documentId+pageIndex], lastAccessedAt",
       settings: "key",
     });
+    // Keep the legacy store so upgrading never discards existing snapshots.
+    this.version(2).stores({ explanationHistory: "id, requestHash, surface, createdAt, deletedAt" })
+      .upgrade(async transaction => {
+        const rows = await transaction.table("explanations").toArray();
+        await transaction.table("explanationHistory").bulkPut(rows.map(row => ({ ...row, id: row.id || row.requestHash })));
+      });
+    this.explanations = this.table("explanationHistory");
   }
 }
 

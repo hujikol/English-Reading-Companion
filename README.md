@@ -7,24 +7,33 @@ A local-first reading companion for Indonesian learners reading English novels, 
 ## Status
 
 In development. The reader, dictionary lookup, vocabulary and review flows work;
-see **Known gaps** below for what does not.
+see [known limitations](docs/known-limitations.md) for the remaining gaps.
 
 `IDEA.md` holds the full implementation plan (scope, architecture, performance budgets, phases, risks). It is git-ignored as a personal working document — it lives in your local checkout, not in the repository.
 
 ## What it does
 
 - Open a **local** file — PDF, EPUB, TXT, Markdown. Nothing is uploaded.
-- Render the document first; classification, hashing, dictionary setup, and semantic extraction never block reading.
+- Parse readable text lazily, then load nearby pages as you scroll.
 - Look up a **selected** word against an **offline** English–Indonesian dictionary. A dictionary miss never silently starts a network request.
-- Optionally ask an AI provider for a contextual explanation — only on explicit request, never on selection.
+- Optionally run a browser-local model for a contextual explanation — only on explicit request, never on selection.
 - Save vocabulary with its source context, then review it. Everything works with AI disabled.
 
-## Known gaps
+## Reader behavior and limits
 
-- **No dictionary pack is installed.** Every lookup honestly reports `no-active-pack`; the card offers to save the word with your own meaning instead. Choosing and licensing a source is the open decision.
-- **Rendering is verified by build, not by eye.** The PDF pipeline is exercised in tests against real PDF bytes and the real WASM, but canvas rasterization, text-layer geometry and mark painting have not been observed in a browser.
-- **No AI provider is configured**, so the explain action is disabled by construction.
-- **EPUB/TXT/Markdown reading is not wired into the UI yet**; the format logic is tested but only the PDF path is reachable from the reader.
+All supported formats open as selectable text, with Paged and Scroll modes. Scroll parses nearby pages automatically and keeps the toolbar visible. The library preserves each document's last page and reuses repeated imports. Saved highlights can be opened from the reader sidebar.
+
+The bundled Wiktionary/Kaikki English–Indonesian dictionary works locally. Contextual explanations run locally in the browser using WebGPU and Qwen3 4B, downloaded on first request. Basic online translation remains available through MyMemory. See [dictionary options](docs/dictionary-options.md).
+
+PDF text extraction depends on the document's embedded text. Scanned pages need OCR; complex columns and poor embedded OCR can still affect reading order. Text mode does not reproduce images or print layouts.
+
+## Contextual explanations
+
+Select a word, check the full **Sentence context**, and choose **Explain in context**. The explanation includes the sentence meaning in Indonesian, a natural translation, the word's meaning in that sentence, alternate meanings, grammar notes, and bilingual examples. Choose **Use this meaning** before saving it to vocabulary; saved AI results retain their source and context.
+
+Use a browser with WebGPU and `shader-f16` support and enough GPU memory (the model advertises about 3.4 GB). The first explanation downloads about **2.3 GB** of model weights into browser storage; later requests reuse that cache. No Ollama installation or API key is needed. Generation stays on the device. Clearing browser storage requires another download. The separate **Basic online translation** action sends the chosen text to MyMemory.
+
+Explanation history preserves separate saved results, including repeated requests. Learning backups use format version 2; export a fresh backup before using an older build.
 
 ## Running it
 
@@ -33,6 +42,7 @@ npm ci
 npm run dev        # http://localhost:5173
 npm run build      # typecheck (node + app scopes) then vite build, then the offline inventory
 npm test           # vitest
+npm run offline:smoke # verify built offline assets and size budgets
 ```
 
 Node 24. If `node -v` reports v16, `/usr/local/bin/node` is shadowing nvm — run `source ~/.nvm/nvm.sh && nvm use 24` first. The same trap breaks `npm test` with `crypto.getRandomValues is not a function`.
@@ -44,9 +54,9 @@ Node 24. If `node -v` reports v16, `/usr/local/bin/node` is shadowing nvm — ru
 - No accounts, no cloud sync, no DRM circumvention, no whole-book translation.
 - Selected PDFs must keep working when semantic extraction fails.
 
-## Planned stack
+## Stack
 
-React · TypeScript · Vite · `pdfjs-dist` · `@firecrawl/pdf-inspector-wasm` · Dexie · Tauri (desktop, optional, added later)
+React · TypeScript · Tailwind CSS · Vite · PDF.js · Dexie · WebLLM (WebGPU). The optional inspector WASM is bundled; Tauri desktop delivery remains planned.
 
 One repository, one web application. No monorepo, no dependency-injection container, no provider marketplace.
 

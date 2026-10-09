@@ -1,0 +1,22 @@
+import { expect, it } from "vitest";
+import { db } from "../../../src/db/index.ts";
+import { repairLibrary } from "../../../src/ui/library/reopen.ts";
+it("repairs duplicate documents while preserving latest progress and all linked user data", async () => {
+  await db.delete(); await db.open();
+  const locator = { kind: "pdf" as const, pageIndex: 9, pageFraction: 0.2 };
+  const common = { title: "Book", originalName: "book.pdf", format: "pdf" as const, byteSize: 4, contentHash: "same", importState: "ready" as const };
+  await db.documents.bulkPut([{ ...common, id: "old", importedAt: 1, lastOpenedAt: 200 }, { ...common, id: "duplicate", importedAt: 2, lastOpenedAt: 100 }]);
+  await db.assets.bulkPut(["old", "duplicate"].map(documentId => ({ documentId, blob: new Blob(["data"]), mime: "application/pdf", byteSize: 4, checksum: "same" })));
+  await db.progress.bulkPut([{ documentId: "old", locator: { ...locator, pageIndex: 0 }, progression: 0, updatedAt: 10, revision: 2 }, { documentId: "duplicate", locator, progression: 0.5, updatedAt: 20, revision: 3 }]);
+  await db.marks.put({ id: "mark", documentId: "duplicate", titleSnapshot: "Book", anchor: { quote: "word", locator, anchorState: "resolved" }, color: "yellow", createdAt: 1 });
+  await db.bookmarks.put({ id: "bookmark", documentId: "duplicate", titleSnapshot: "Book", locator, label: "Page 10", createdAt: 1, updatedAt: 1 });
+  await db.occurrences.put({ id: "occurrence", vocabularyId: "word", documentId: "duplicate", titleSnapshot: "Book", anchor: { quote: "word", locator, anchorState: "resolved" }, sentence: "word" });
+  await repairLibrary();
+  expect(await db.documents.count()).toBe(1);
+  expect(await db.assets.count()).toBe(1);
+  expect(await db.progress.get("old")).toMatchObject({ locator, revision: 4 });
+  for (const table of [db.marks, db.bookmarks, db.occurrences]) expect((await table.toArray())[0]?.documentId).toBe("old");
+  await repairLibrary();
+  expect((await db.progress.get("old"))?.revision).toBe(4);
+  await db.delete();
+});

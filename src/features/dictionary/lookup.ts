@@ -151,10 +151,10 @@ const stemCandidates = (normalized: string): string[] => {
     if (/([^aeiou])\1$/.test(stem)) {
       out.add(stem.slice(0, -1));
       // and the -e restore: making -> mak -> make
-      if (/[aeiou]$/.test(stem)) out.add(`${stem}e`);
+      if (/[^aeiou]$/.test(stem)) out.add(`${stem}e`);
     }
     // restore a dropped silent e on an open syllable: mak -> make
-    if (/[aeiou]$/.test(stem)) out.add(`${stem}e`);
+    if (/[^aeiou]$/.test(stem)) out.add(`${stem}e`);
   }
   return [...out];
 };

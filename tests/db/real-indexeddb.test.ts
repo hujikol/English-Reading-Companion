@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { db } from "../../src/db/index.ts";
+import Dexie from "dexie";
+import { AppDB, db } from "../../src/db/index.ts";
 import type { Bookmark } from "../../src/contracts/index.ts";
 
 /**
@@ -58,4 +59,20 @@ describe("real IndexedDB in tests", () => {
     ).rejects.toThrow("boom");
     expect(await db.bookmarks.get("b4")).toBeUndefined();
   });
+});
+
+it("upgrades legacy explanations without losing snapshots", async () => {
+  const name = "explanation-migration-test";
+  const legacy = new Dexie(name);
+  legacy.version(1).stores({ explanations: "requestHash, surface, createdAt, deletedAt" });
+  await legacy.table("explanations").put({ id: "old-id", requestHash: "same-request", surface: "bank", createdAt: 1 });
+  legacy.close();
+  const upgraded = new AppDB(name);
+  try {
+    expect(await upgraded.explanations.get("old-id")).toMatchObject({ requestHash: "same-request" });
+    await upgraded.explanations.put({ id: "new-id", requestHash: "same-request", surface: "bank", contextText: "river bank", provider: "local", model: "test", promptVersion: "1", result: { naturalTranslation: "tepi sungai", contextualMeaning: "tepi", provider: "local", model: "test", promptVersion: "1" }, createdAt: 2 });
+    expect(await upgraded.explanations.count()).toBe(2);
+  } finally {
+    await upgraded.delete();
+  }
 });

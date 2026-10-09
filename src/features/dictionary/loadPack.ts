@@ -25,18 +25,6 @@ export type LoadState =
 let inFlight: Promise<LoadState> | null = null;
 
 /**
- * Fetch one chunk.
- *
- * The response is requested WITHOUT `Content-Encoding: gzip` on purpose.
- *
- * The host serves these files with `Content-Encoding: gzip`, so the browser
- * transparently inflates them and `arrayBuffer()` yields plain JSON. Handing
- * that to installPack's `gunzip` fails with "incorrect header check" — the
- * dictionary silently never installs. The pack is already compressed on disk;
- * compressing it a second time for transport buys nothing and loses the ability
- * to read it back.
- */
-/**
  * Fetch one chunk as raw bytes. Does NOT decompress.
  *
  * The host may serve these files with `Content-Encoding: gzip` (the browser
@@ -48,7 +36,6 @@ let inFlight: Promise<LoadState> | null = null;
 async function fetchChunk(file: string): Promise<Uint8Array> {
   const response = await fetch(`${BASE}/${file}`, {
     cache: "force-cache",
-    headers: { "Accept-Encoding": "identity" },
   });
   if (!response.ok) throw new Error(`chunk ${file}: HTTP ${response.status}`);
   return new Uint8Array(await response.arrayBuffer());
@@ -65,24 +52,28 @@ export async function loadDictionary(): Promise<LoadState> {
 async function install(): Promise<LoadState> {
   try {
     const active = await activePack(dictDb);
-    if (active !== null) {
-      return { kind: "ready", packVersion: active.packVersion, headwords: active.headwordCount, attribution: { source: active.license, license: active.licenseUrl, licenseUrl: active.licenseUrl } };
-    }
 
-    const response = await fetch(`${BASE}/manifest.json`, { cache: "force-cache" });
-    if (!response.ok) return { kind: "absent", reason: `manifest: HTTP ${response.status}` };
+    const response = await fetch(`${BASE}/manifest.json`, { cache: "no-cache" });
+    if (!response.ok) {
+      if (active) return { kind: "ready", packVersion: active.packVersion, headwords: active.headwordCount, attribution: { source: "Wiktionary / Kaikki", license: active.license, licenseUrl: active.licenseUrl } };
+      return { kind: "absent", reason: `manifest: HTTP ${response.status}` };
+    }
 
     const manifest = (await response.json()) as PackManifest;
     if (typeof manifest.packVersion !== "string" || !Array.isArray(manifest.chunks)) {
       return { kind: "absent", reason: "manifest is not a pack manifest" };
     }
 
+    if (active?.packVersion === manifest.packVersion) return { kind: "ready", packVersion: active.packVersion, headwords: active.headwordCount, attribution: { source: "Wiktionary / Kaikki", license: active.license, licenseUrl: active.licenseUrl } };
+
     // installPack is already transactional: it stages, validates every chunk
     // against the manifest's row count and hash, and only then flips active. A
     // failure part-way leaves any previous pack in place.
     const installed = await installPack(dictDb, manifest, { fetchChunk });
-    return { kind: "ready", packVersion: installed.packVersion, headwords: installed.headwordCount, attribution: { source: installed.license, license: installed.licenseUrl, licenseUrl: installed.licenseUrl } };
+    return { kind: "ready", packVersion: installed.packVersion, headwords: installed.headwordCount, attribution: { source: "Wiktionary / Kaikki", license: installed.license, licenseUrl: installed.licenseUrl } };
   } catch (error: unknown) {
+    const previous = await activePack(dictDb).catch(() => undefined);
+    if (previous) return { kind: "ready", packVersion: previous.packVersion, headwords: previous.headwordCount, attribution: { source: "Wiktionary / Kaikki", license: previous.license, licenseUrl: previous.licenseUrl } };
     return { kind: "absent", reason: error instanceof Error ? error.message : String(error) };
   }
 }

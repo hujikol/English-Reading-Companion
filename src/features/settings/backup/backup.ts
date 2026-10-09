@@ -3,7 +3,7 @@ import type { Table } from "dexie";
 import type { AppDB, ReviewCard, ReviewEvent } from "../../../db/index.ts";
 
 export const BACKUP_FORMAT = "erc.learning-backup";
-export const BACKUP_FORMAT_VERSION = 1;
+export const BACKUP_FORMAT_VERSION = 2;
 
 /** Shown on export and before every import. Unencrypted by design at v0.1. */
 export const UNENCRYPTED_WARNING =
@@ -28,7 +28,7 @@ const SECTION_KEYS: Record<Section | "settings", string> = {
   marks: "id",
   vocabulary: "id",
   occurrences: "id",
-  explanations: "requestHash",
+  explanations: "id",
   reviewCards: "vocabularyId",
   reviewEvents: "id",
   settings: "key",

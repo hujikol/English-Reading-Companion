@@ -21,7 +21,6 @@ const files = [
   "src/app/LibraryScreen.tsx",
   "src/app/VocabularyScreen.tsx",
   "src/app/ReviewScreen.tsx",
-  "src/app/EpubScreen.tsx",
 ].map((f) => readFileSync(f, "utf8"));
 
 /**
@@ -59,7 +58,7 @@ describe("no button is left unstyled", () => {
   });
 
   it("the reader has no blanket button rule that could override a role", () => {
-    const css = readFileSync("src/ui/reader/reader.css", "utf8");
+    const css = readFileSync("src/app.css", "utf8");
     expect(css).not.toMatch(/^\.reader button\s*[,{]/m);
   });
 });

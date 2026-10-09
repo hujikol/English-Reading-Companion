@@ -14,8 +14,11 @@
  *    component.
  */
 
+import type { ReactNode } from "react";
+import { translateToIndonesian } from "../features/dictionary/translate.ts";
+import { ContextExplanation } from "./ContextExplanation.tsx";
 import { BTN_PRIMARY, BTN_SECONDARY, META } from "./styles.ts";
-import { useCallback, useEffect, useId, useRef } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 
 import {
   announceCard,
@@ -41,7 +44,6 @@ import {
   type Lookup,
   type LookupSurface,
   type PopoverState,
-  type SaveOutcome,
   type Selection,
 } from "./vocab/selectionPopover.ts";
 
@@ -53,18 +55,20 @@ export type SelectionPopoverProps = {
   store: Parameters<typeof saveSelection>[0]["store"];
   /** disabled by default: an unconfigured provider cannot be reached at all */
   ai?: AiAvailability;
-  packAttribution?: { source: string; license: string } | null;
+  packAttribution?: { source: string; license: string; packVersion?: string } | null;
   /** True while the dictionary is being installed at app startup; the card
       avoids re-triggering install on a miss and shows progress instead. */
   dictLoading?: boolean;
   onDismiss: (reason: "escape" | "outside" | "selection-change" | "scroll" | "action") => void;
   /** focus the card after a keyboard activation; never called on hover/selection */
   autoFocus?: boolean;
+  highlightActions?: ReactNode;
+  localProgress?: string;
 };
 
 /** Keep the card inside the viewport without moving it under the learner's cursor. */
 function placementFor(rect: { top: number; left: number; bottom: number; right: number }): { top: number; left: number; position: string } {
-  const width = 360;
+  const width = 416;
   const viewportWidth = typeof window === "undefined" ? 1024 : window.innerWidth;
   const viewportHeight = typeof window === "undefined" ? 768 : window.innerHeight;
   const left = Math.max(8, Math.min(rect.left, viewportWidth - width - 8));
@@ -86,6 +90,20 @@ function placementFor(rect: { top: number; left: number; bottom: number; right: 
 
 export function SelectionPopover(props: SelectionPopoverProps) {
   const { state, onStateChange, lookupSurface, store, ai, packAttribution, dictLoading, onDismiss, autoFocus } = props;
+  const [translation, setTranslation] = useState("");
+  const [translating, setTranslating] = useState(false);
+  const translationRequest = useRef(0);
+  useEffect(() => { translationRequest.current++; setTranslation(""); setTranslating(false); }, [state.requestId]);
+  const [context, setContext] = useState("");
+  const [meaningSource, setMeaningSource] = useState<"manual" | "dictionary" | "ai">("manual");
+  const [meaningEdited, setMeaningEdited] = useState(false);
+  const latest = useRef(state);
+  latest.current = state;
+  const explainAbort = useRef<AbortController>();
+  useEffect(() => {
+    setContext(state.selection?.sentence ?? ""); setMeaningSource("manual"); setMeaningEdited(false);
+    return () => explainAbort.current?.abort();
+  }, [state.requestId, state.open]);
   const cardRef = useRef<HTMLDivElement | null>(null);
   const headingId = useId();
   const meaningId = useId();
@@ -155,28 +173,46 @@ export function SelectionPopover(props: SelectionPopoverProps) {
     the first time the card opens — and it fails exactly when the learner selects
     a word, which is the one moment the product must work.
   */
-  const doSave = useCallback(() => {
+  const doSave = useCallback(async () => {
     if (selection === null) return;
+    const requestId = state.requestId;
     onStateChange(beginSave(state));
-    void saveSelection({
+    const result = meaningSource === "ai" && state.explain?.kind === "explained" ? state.explain.result : undefined;
+    try {
+    const requestHash = result ? [...new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify([selection.surface, context, result.provider, result.model, result.promptVersion]))))].map(byte => byte.toString(16).padStart(2, "0")).join("") : "";
+    const outcome = await saveSelection({
       store,
       selection,
       meaning: state.meaningDraft,
       ...(state.noteDraft === "" ? {} : { note: state.noteDraft }),
-      ...(summary.kind === "match" ? { provenance: { kind: "dictionary" as const } } : { provenance: { kind: "manual" as const } }),
+      provenance: { kind: meaningSource, userEdited: meaningEdited, ...(meaningSource === "dictionary" && packAttribution?.packVersion ? { sourceVersion: packAttribution.packVersion } : {}), ...(meaningSource === "ai" && result ? { sourceVersion: `${result.provider}/${result.model}/${result.promptVersion}` } : {}) },
       ...(summary.kind === "match" && selection.surface !== summary.headword ? { lemma: summary.headword } : {}),
-    }).then((outcome: SaveOutcome) => onStateChange(endSave(state, outcome)));
-  }, [onStateChange, selection, state, store, summary]);
+      ...(result ? { explanation: {
+        id: crypto.randomUUID(), requestHash,
+        contextText: context, result, provider: result.provider, model: result.model, promptVersion: result.promptVersion,
+        ...(selection.documentId ? { documentId: selection.documentId } : {}),
+      } } : {}),
+    });
+    if (latest.current.open && latest.current.requestId === requestId) onStateChange(endSave(latest.current, outcome));
+    } catch (error) {
+      if (latest.current.open && latest.current.requestId === requestId) onStateChange(endSave(latest.current, { kind: "failed", message: error instanceof Error ? error.message : "Could not save the explanation." }));
+    }
+  }, [context, meaningSource, meaningEdited, onStateChange, selection, state, store, summary]);
 
   const doExplain = useCallback(() => {
     if (selection === null) return;
+    const requestId = state.requestId;
+    explainAbort.current?.abort();
+    const controller = new AbortController(); explainAbort.current = controller;
     onStateChange(beginExplain(state));
     void requestExplain({
       availability: ai ?? { configured: false, reason: "No AI provider is configured." },
-      selection,
-      signal: new AbortController().signal,
-    }).then((outcome) => onStateChange(endExplain(state, outcome)));
-  }, [ai, onStateChange, selection, state]);
+      selection: { ...selection, sentence: context },
+      signal: controller.signal,
+    }).then((outcome) => {
+      if (!controller.signal.aborted && latest.current.open && latest.current.requestId === requestId) onStateChange(endExplain(latest.current, outcome, requestId));
+    });
+  }, [ai, context, onStateChange, selection, state]);
 
   if (!open || selection === null) return null;
   const senses = state.lookup !== null && state.lookup.found ? senseChoices(state.lookup.result, state.meaningDraft) : [];
@@ -187,11 +223,11 @@ export function SelectionPopover(props: SelectionPopoverProps) {
   return (
     <div
       ref={cardRef}
-      className="absolute z-30 w-[22rem] rounded-xl border border-line bg-paper shadow-xl shadow-black/10 p-4 text-ink"
+      className="fixed z-50 max-h-[80dvh] max-w-[calc(100vw-1rem)] overflow-y-auto w-[26rem] rounded-xl border border-line bg-paper shadow-xl shadow-black/10 p-4 text-ink"
       role="dialog"
       aria-labelledby={headingId}
       aria-describedby={sentenceId}
-      style={{ position: "absolute", top: `${placement.top}px`, left: `${placement.left}px`, maxWidth: "22rem" }}
+      style={{ top: `${Math.max(8, Math.min(placement.top, window.innerHeight * 0.2))}px`, left: `${placement.left}px` }}
       data-placement={placement.position}
       data-testid="selection-popover"
     >
@@ -222,6 +258,33 @@ export function SelectionPopover(props: SelectionPopoverProps) {
         </button>
       </div>
 
+      <label className="mb-3 block text-xs font-medium text-ink-soft" htmlFor={sentenceId}>
+        <span>Sentence context</span>
+        <textarea id={sentenceId} rows={3} value={context} className="mt-1 block w-full rounded-lg border border-line bg-shell p-2 font-read text-sm leading-relaxed text-ink"
+          onChange={event => {
+            explainAbort.current?.abort(); setContext(event.target.value); setMeaningSource("manual");
+            onStateChange({ ...(meaningSource === "manual" ? state : setMeaningDraft(state, "")), explain: null, explainPending: false });
+          }} />
+      </label>
+      <button type="button" className={BTN_PRIMARY} onClick={doExplain} disabled={aiDisabled || state.explainPending || !context.trim()}>
+        {state.explainPending ? "Explaining sentence…" : "Explain in context"}
+      </button>
+      <p className={`mt-2 ${META}`}>Explains this word in the full sentence, with other meanings and examples. Runs on your device. First use downloads about 2.3 GB; later uses reuse the browser cache.</p>
+      {state.explainPending && <div className="mt-2 text-sm" role="status">
+        <p>{props.localProgress || "Starting local model…"}</p>
+        <button type="button" className={`${BTN_SECONDARY} mt-2`} onClick={() => {
+          explainAbort.current?.abort(); onStateChange({ ...state, explainPending: false });
+        }}>Cancel explanation</button>
+      </div>}
+      {aiDisabled && <p className={META}>Local explanations are unavailable.</p>}
+      {state.explain?.kind === "explained" && <ContextExplanation result={state.explain.result} onUseMeaning={meaning => {
+        setMeaningSource("ai"); setMeaningEdited(false); onStateChange(setMeaningDraft(state, meaning));
+      }} />}
+      {state.explain && state.explain.kind !== "explained" && <p role="alert" className="mt-2 text-sm text-danger">
+        {state.explain.kind === "disabled" ? state.explain.reason : state.explain.message}
+      </p>}
+      <p role="status" className="sr-only">{state.explainPending ? "Explaining sentence" : state.explain ? announceExplain(state.explain) : ""}</p>
+
       {state.status === "looking-up" && <p className="mb-3 text-sm text-ink-soft">{dictLoading ? "Loading dictionary…" : "Looking up…"}</p>}
 
       {state.status === "failed" && (
@@ -231,6 +294,8 @@ export function SelectionPopover(props: SelectionPopoverProps) {
       )}
 
       {senses.length > 0 && (
+        <details className="my-3">
+        <summary className="cursor-pointer text-sm font-medium">Dictionary meanings · {senses.length}</summary>
         <ul className="mb-3 flex max-h-40 flex-col gap-1 overflow-y-auto" aria-label="Senses">
           {senses.map((sense) => (
             <li key={sense.senseId}>
@@ -238,13 +303,14 @@ export function SelectionPopover(props: SelectionPopoverProps) {
                 type="button"
                 className="w-full rounded-lg border border-line px-3 py-2 text-left text-sm hover:border-accent hover:bg-accent-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent aria-pressed:border-accent aria-pressed:bg-accent-soft"
                 aria-pressed={sense.selected}
-                onClick={() => onStateChange(setMeaningDraft(state, sense.gloss))}
+                onClick={() => { setMeaningSource("dictionary"); setMeaningEdited(false); onStateChange(setMeaningDraft(state, sense.gloss)); }}
               >
                 {sense.gloss}
               </button>
             </li>
           ))}
         </ul>
+        </details>
       )}
 
       {miss !== null && miss.kind === "none" && (
@@ -257,56 +323,35 @@ export function SelectionPopover(props: SelectionPopoverProps) {
         <span>Meaning you will save</span>
         <textarea
           id={meaningId}
+          className="mt-1 w-full rounded-lg border border-ink-soft bg-paper p-2 text-sm text-ink"
           rows={2}
           value={state.meaningDraft}
           placeholder="Type the meaning in Indonesian or English"
-          onChange={(e) => onStateChange(setMeaningDraft(state, e.target.value))}
+          onChange={(e) => { setMeaningEdited(meaningSource !== "manual"); onStateChange(setMeaningDraft(state, e.target.value)); }}
         />
-      </label>
-
-      <label className="mb-3 block text-xs font-medium text-ink-soft" htmlFor={sentenceId}>
-        <span>Original sentence</span>
-        <output id={sentenceId} className="mt-1 block max-h-24 overflow-y-auto rounded-lg bg-shell p-2 font-read text-sm leading-relaxed text-ink">
-          {selection.sentence === "" ? "No sentence captured for this selection." : selection.sentence}
-        </output>
       </label>
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <button type="button" className={BTN_PRIMARY} onClick={doSave} disabled={!canSave(state)}>
           {state.savePending ? "Saving…" : "Save to vocabulary"}
         </button>
-        {/*
-          AI is reachable only by this click, and only when a provider exists.
-          There is no hover path, no effect path, and no provider construction here.
-        */}
-        <button
-          type="button"
-          className={BTN_SECONDARY}
-          onClick={doExplain}
-          disabled={aiDisabled || state.explainPending}
-          title={aiDisabled ? (ai !== undefined && !ai.configured ? ai.reason : "No AI provider is configured.") : "Explain this word with AI"}
-          aria-describedby={aiDisabled ? `${headingId}-ai-note` : undefined}
-        >
-          {state.explainPending ? "Asking…" : "Explain with AI"}
-        </button>
       </div>
 
-      {aiDisabled && (
-        <p id={`${headingId}-ai-note`} className={`mt-2 block ${META}`}>
-          AI is off. Configure a provider in Settings to enable it. Reading and saving work without it.
-        </p>
-      )}
-
-      {state.explain !== null && (
-        <p className={`mt-2 block ${META}`}>
-          {state.explain.kind === "explained"
-            ? state.explain.result.naturalTranslation
-            : state.explain.kind === "disabled"
-              ? state.explain.reason
-              : `The explanation failed: ${state.explain.message}`}
-          <span className="sr-only">{announceExplain(state.explain)}</span>
-        </p>
-      )}
+      {props.highlightActions}
+      <details className="mt-3"><summary className="cursor-pointer text-sm text-ink-soft">Basic online translation</summary>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {(["selection", "sentence"] as const).map(scope => <button type="button" key={scope} className={BTN_SECONDARY} disabled={translating} onClick={() => {
+          const token = ++translationRequest.current;
+          setTranslating(true); setTranslation("");
+          void translateToIndonesian(scope === "selection" ? selection.surface : context).then(text => {
+            if (token === translationRequest.current) setTranslation(text);
+          }).catch(error => { if (token === translationRequest.current) setTranslation(`Translation failed: ${error.message}`); })
+            .finally(() => { if (token === translationRequest.current) setTranslating(false); });
+        }}>Translate {scope}</button>)}
+      </div>
+      <p className={`mt-2 ${META}`}>Translation sends only the chosen text to MyMemory when clicked. Requires internet.</p>
+      {(translating || translation) && <p role="status" className="mt-2 rounded-lg bg-accent-soft p-3 text-sm text-ink">{translating ? "Translating…" : translation}</p>}
+      </details>
 
       <footer className="mt-3 flex items-center justify-between gap-2 border-t border-line pt-2 text-xs text-ink-soft">
         {packAttribution === null || packAttribution === undefined ? (

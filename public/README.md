@@ -23,7 +23,8 @@ Shipped policy, in full:
 ```
 default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self';
 child-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;
-font-src 'self'; connect-src 'self' https://api.anthropic.com;
+font-src 'self'; connect-src 'self' https://api.mymemory.translated.net
+https://huggingface.co https://us.aws.cdn.hf.co;
 manifest-src 'self'; base-uri 'none'; form-action 'none';
 object-src 'none'; frame-src 'none'; frame-ancestors 'none'
 ```

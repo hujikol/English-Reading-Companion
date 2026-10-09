@@ -362,3 +362,12 @@ describe("vocabulary list shows the original explanation separately from the edi
     expect(page.rows[0]!.vocabulary.surface).toBe("leverage");
   });
 });
+
+it("drops a contextual explanation that belongs to an older selection or a closed card", () => {
+  const first = openPopover(initialPopoverState(), selection);
+  const next = openPopover(first, { ...selection, surface: "bank" });
+  const outcome = { kind: "failed" as const, message: "old explanation" };
+  expect(endExplain(next, outcome, first.requestId)).toBe(next);
+  const closed = dismissPopover(first);
+  expect(endExplain(closed, outcome, first.requestId)).toBe(closed);
+});

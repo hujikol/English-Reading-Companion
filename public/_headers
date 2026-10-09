@@ -39,10 +39,10 @@
   #                             necessary by an integration test, and no such
   #                             test requires it. Re-add 'blob:' only with the
   #                             test that demands it.
-  # - connect-src 'self' https://api.anthropic.com
-  #                           : PLACEHOLDER PENDING TRACK G (Section 22.5: H
-  #                             coordinates CSP destinations with G). No other
-  #                             origin is permitted. Do not add wildcard
+  # - connect-src 'self' https://api.mymemory.translated.net https://huggingface.co https://us.aws.cdn.hf.co
+  #                           : MyMemory receives explicit translation requests.
+  #                             Hugging Face and its exact redirect host serve model downloads.
+  #                             No other origin is permitted. Do not add wildcard
   #                             subdomains or an open proxy destination.
   # - style-src 'self' 'unsafe-inline'
   #                           : React sets style attributes inline. Scripts
@@ -55,7 +55,7 @@
   #                           : standard fonts and CMaps are served from our
   #                             origin; Section 18 forbids remote document
   #                             resources. img-src adds data: for inline icons.
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; child-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://api.anthropic.com; manifest-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'; frame-src 'none'; frame-ancestors 'none'
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; child-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://api.mymemory.translated.net https://huggingface.co https://us.aws.cdn.hf.co; manifest-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'; frame-src 'none'; frame-ancestors 'none'
   Referrer-Policy: no-referrer
   X-Content-Type-Options: nosniff
   # A reading app needs no camera, microphone, geolocation or FLoC-style

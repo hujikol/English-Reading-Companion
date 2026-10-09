@@ -50,7 +50,8 @@ export type AssetGroupId =
   | "pdfjs-standard-fonts"
   | "inspector-wasm"
   | "inspector-glue"
-  | "dictionary";
+  | "dictionary"
+  | "optional-ai";
 
 /**
  * One precached file. Structurally an AssetEntry plus the group and the
@@ -118,7 +119,7 @@ export const DELIVERY_BUDGETS = {
  *   compressed" -> `shell`, which is the entry chunk, its CSS, the manifest
  *   and the icons. Never the lazy chunks.
  * - "Lazy PDF engine and worker: target at most 1.5 MiB compressed" ->
- *   `lazy-chunks` (whatever the bundler emitted outside the entry point)
+ *   `lazy-chunks` (lazy format engines, excluding optional AI)
  *   plus `pdfjs-worker` (the self-hosted worker copy).
  * - Section 16 gives fonts and CMaps no budget line of their own; they are
  *   required for offline reading (Section 19) and are therefore charged to
@@ -140,6 +141,8 @@ export const BUDGET_BY_GROUP: Readonly<Record<AssetGroupId, keyof typeof DELIVER
   // The dictionary pack is charged to the total-install budget, not the engine
   // budget: it is a content pack, not part of the PDF pipeline.
   dictionary: "offlineInstall",
+  // Local AI runtime is optional; model weights use their own download/cache.
+  "optional-ai": "offlineInstall",
 };
 
 /** Sum of raw bytes. Reported honestly; transfer size is tracked separately. */

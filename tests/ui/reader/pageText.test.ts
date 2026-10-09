@@ -73,3 +73,15 @@ describe("pageTextOf", () => {
     expect(pageTextOf(items)).not.toMatch(/ {2}/);
   });
 });
+import { readingTextOf } from "../../../src/ui/reader/pageText.ts";
+it("repairs line-break fragments only when the joined word has dictionary evidence", async () => {
+  const words = new Set(["giving", "give", "rewards", "in", "the", "inthe"]);
+  const items = [
+    { str: "by giv", transform: [10,0,0,10,0,100], width: 30 },
+    { str: "ing rewards", transform: [10,0,0,10,0,85], width: 60 },
+    { str: "in", transform: [10,0,0,10,0,70], width: 10 },
+    { str: "the", transform: [10,0,0,10,0,55], width: 10 },
+  ];
+  expect(await readingTextOf(items, async word => words.has(word.toLowerCase()))).toBe("by giving rewards in the");
+  expect(await readingTextOf(items, async () => false)).toBe("by giv ing rewards in the");
+});

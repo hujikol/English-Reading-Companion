@@ -4,6 +4,10 @@ import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  worker: {
+    format: "es",
+    rollupOptions: { output: { entryFileNames: "assets/[name]-[hash].js", manualChunks: { webllm: ["@mlc-ai/web-llm"] } } },
+  },
   test: {
     // A real IndexedDB in Node, so tests exercise the actual Dexie tables
     // instead of a hand-written double. See tests/setup.ts.

@@ -28,7 +28,7 @@ import { EpubChapterFrame } from "../../src/features/reader/epub/renderer.tsx";
 import { anchorFromFrameSelection, chapterPosition, progressionOf, reanchor, restorePosition, stepPosition } from "../../src/features/reader/epub/reader.tsx";
 import { readEpub, decodeHrefAttributes, isReflowable } from "../../src/features/reader/epub/opf.ts";
 import { chapterLinkHrefs, importTargets } from "../../src/features/reader/epub/css.ts";
-import { openFailureMessage } from "../../src/app/EpubScreen.tsx";
+import { openFailureMessage } from "../../src/features/reader/epub/reader.tsx";
 import { captureAnchor } from "../../src/features/selection/anchor.ts";
 import { saveMark } from "../../src/features/marks/save.ts";
 import type { Anchor } from "../../src/contracts/index.ts";

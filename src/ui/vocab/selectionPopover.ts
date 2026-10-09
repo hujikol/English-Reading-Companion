@@ -85,7 +85,7 @@ export type SaveRequest = {
   meaning: string;
   note?: string;
   /** the pack version the senses came from; absent for a manual save */
-  provenance?: { kind: "dictionary" | "ai" | "manual"; sourceVersion?: string };
+  provenance?: { kind: "dictionary" | "ai" | "manual"; sourceVersion?: string; userEdited?: boolean };
   lemma?: string;
   explanation?: Omit<Explanation, "surface" | "createdAt">;
 };
@@ -264,7 +264,8 @@ export function beginExplain(state: PopoverState): PopoverState {
   return { ...state, explainPending: true, explain: null };
 }
 
-export function endExplain(state: PopoverState, outcome: ExplainOutcome): PopoverState {
+export function endExplain(state: PopoverState, outcome: ExplainOutcome, requestId = state.requestId): PopoverState {
+  if (!state.open || requestId !== state.requestId) return state;
   return { ...state, explainPending: false, explain: outcome };
 }
 

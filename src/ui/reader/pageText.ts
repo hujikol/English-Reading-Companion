@@ -92,3 +92,34 @@ export function pageTextOf(items: readonly unknown[]): string {
   );
   return joinTextItems(usable);
 }
+/** Reflow PDF lines, preserving paragraph gaps and repairing only dictionary-confirmed broken words. */
+export async function readingTextOf(items: readonly unknown[], isWord: (word: string) => Promise<boolean>): Promise<string> {
+  const lines: { items: TextItemLike[]; x: number; y: number; size: number }[] = [];
+  for (const value of items) {
+    const item = value as TextItemLike;
+    if (typeof item?.str !== "string" || !Array.isArray(item.transform) || !item.str.trim()) continue;
+    const y = item.transform[5] ?? 0;
+    const last = lines[lines.length - 1];
+    if (last && Math.abs(last.y - y) <= SAME_LINE_EPSILON) last.items.push(item);
+    else lines.push({ items: [item], x: item.transform[4] ?? 0, y, size: sizeOf(item) });
+  }
+  let text = "";
+  for (let index = 0; index < lines.length; index++) {
+    const line = lines[index]!;
+    let next = joinTextItems(line.items);
+    const previous = lines[index - 1];
+    if (!previous) { text = next; continue; }
+    const paragraph = Math.abs(previous.y - line.y) > Math.max(previous.size, line.size) * 2 || line.x - previous.x > line.size * 0.7 || Math.abs(previous.size - line.size) > 2;
+    const left = /([a-z]+)-?$/i.exec(text);
+    const right = /^([a-z]+)/i.exec(next);
+    let separator = paragraph ? "\n\n" : " ";
+    if (!paragraph && left?.[1] && right?.[1]) {
+      const joined = left[1] + right[1];
+      if (await isWord(joined) && (!(await isWord(left[1])) || !(await isWord(right[1])))) {
+        text = text.replace(/-$/, ""); separator = "";
+      }
+    }
+    text += separator + next;
+  }
+  return text.trim();
+}

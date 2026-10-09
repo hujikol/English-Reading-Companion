@@ -1,0 +1,12 @@
+{
+  "source": "../../dictionaries/vendor/en-id.dsl",
+  "sourceSha256": "62666b197a5e46294b51afbf0a17d7c9a332c0e82a8659274b506157b2f0e4a3",
+  "packVersion": "0.2.0",
+  "sourceUrl": "https://kaikki.org/dictionary/English/kaikki.org-dictionary-English.jsonl.gz",
+  "sourceRevision": "kaikki.org English extract, wiktextract 1a05e46 / e3d6d4e",
+  "license": "CC BY-SA 3.0/4.0 AND GFDL",
+  "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+  "attribution": "Dictionary data from Wiktionary contributors (CC BY-SA 4.0/GFDL), extracted via kaikki.org by Tatu Ylonen. Sense text is the contributors'; this pack is a derivative and carries the same licence.",
+  "outDir": "../../public/dictionary",
+  "chunkRows": 2000
+}

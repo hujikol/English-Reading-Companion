@@ -8,10 +8,10 @@
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 
-import { db, deleteSource, type DocumentRecord, type ProgressRecord } from "../db/index.ts";
+import { db, deleteSource, type DocumentRecord } from "../db/index.ts";
 import { exportBackup } from "../features/settings/backup/backup.ts";
 import { exportVocabularyCsv } from "../features/settings/backup/csv.ts";
-import { reopenDocument } from "../ui/library/reopen.ts";
+import { reopenDocument, repairLibrary } from "../ui/library/reopen.ts";
 import {
   announceExport,
   backupFileName,
@@ -28,20 +28,7 @@ import {
 
 type Notice = { tone: "ok" | "error"; text: string };
 
-/*
- * Buttons. Tailwind v4 composes these from the `@theme` tokens in app.css; the
- * focus ring is `outline-*` rather than `ring-*` so it never changes layout,
- * and it is on `focus-visible` so a mouse click does not leave a halo behind.
- */
-const FOCUS =
-  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
-const BTN =
-  `inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-colors ${FOCUS} disabled:cursor-not-allowed disabled:opacity-50`;
-/** The one action a card is for. Text on `accent` is 5:1 — AA at any size. */
-const BTN_PRIMARY = `${BTN} bg-accent text-paper hover:bg-accent/90`;
-const BTN_SECONDARY = `${BTN} border border-line bg-paper text-ink hover:border-ink/30 hover:bg-shell`;
-/** Destructive-adjacent but recoverable: text-only until hovered or focused. */
-const BTN_QUIET = `${BTN} px-3 text-ink-soft hover:bg-shell hover:text-ink`;
+import { BTN_PRIMARY, BTN_SECONDARY, BTN_QUIET } from "../ui/styles.ts";
 
 const DOWNLOAD = (blob: Blob, fileName: string): void => {
   const url = URL.createObjectURL(blob);
@@ -65,49 +52,13 @@ export function LibraryScreen({ onOpenDocument }: LibraryScreenProps = {}) {
   const headingId = useId();
 
   const refresh = useCallback(async () => {
-    const [documents, progress, assets] = await Promise.all([
-      db.documents.toArray() as Promise<DocumentRecord[]>,
-      db.progress.toArray() as Promise<ProgressRecord[]>,
-      db.assets.toArray(),
-    ]);
-
-    // Self-heal: rows written before the importState fix are stuck on "saving"
-    // even though their bytes are stored, which disabled Open forever. Readiness
-    // is a fact about whether the bytes exist, so derive it and repair the row.
-    const stored = new Set(assets.filter((a) => a.blob !== undefined && a.blob.size > 0).map((a) => a.documentId));
-    const stale = documents.filter((d) => d.importState !== "ready" && stored.has(d.id));
-    if (stale.length > 0) {
-      await db.documents.bulkPut(stale.map((d) => ({ ...d, importState: "ready" as const })));
-      for (const d of stale) d.importState = "ready";
-    }
-
-    // Reopening used to mint a new document id, so the same book was saved
-    // again and again under fresh ids. Collapse those back to one entry,
-    // keeping the most recently opened and re-pointing its progress.
-    const byHash = new Map<string, DocumentRecord>();
-    const duplicates: string[] = [];
-    for (const d of [...documents].sort((a, b) => a.lastOpenedAt - b.lastOpenedAt)) {
-      const key = d.contentHash;
-      if (key === undefined || key === "") continue;
-      const winner = byHash.get(key);
-      if (winner === undefined) {
-        byHash.set(key, d);
-        continue;
-      }
-      duplicates.push(d.id);
-      // Later rows hold the more recent reading position; move it to the
-      // survivor before the duplicate is deleted, or the position is lost.
-      const loserProgress = await db.progress.get(d.id);
-      if (loserProgress !== undefined) await db.progress.put({ ...loserProgress, documentId: winner.id });
-    }
-    if (duplicates.length > 0) await db.documents.bulkDelete(duplicates);
-
-    const surviving = documents.filter((d) => !duplicates.includes(d.id));
-    setRows(buildLibraryRows(surviving, progress));
+    await repairLibrary();
+    const [documents, progress] = await Promise.all([db.documents.toArray(), db.progress.toArray()]);
+    setRows(buildLibraryRows(documents, progress));
   }, []);
 
   useEffect(() => {
-    void refresh();
+    void refresh().catch(e => setNotice({ tone: "error", text: `Could not load library: ${String(e)}` }));
   }, [refresh]);
 
   const onImport = useCallback(
@@ -167,6 +118,8 @@ export function LibraryScreen({ onOpenDocument }: LibraryScreenProps = {}) {
           return;
         }
         await onOpenDocument?.(result.file, result.document);
+      } catch (e) {
+        setNotice({ tone: "error", text: `Could not open document: ${String(e)}` });
       } finally {
         setBusy(false);
       }
@@ -307,6 +260,7 @@ export function LibraryScreen({ onOpenDocument }: LibraryScreenProps = {}) {
                 <button
                   type="button"
                   className={BTN_PRIMARY}
+                  disabled={busy}
                   onClick={() => void onOpen(row.document.id)}
                   aria-label={`Open ${row.document.title}${row.progression !== undefined ? ` at ${row.positionLabel}` : ""}`}
                 >

@@ -22,19 +22,14 @@ import type { Selection } from "../vocab/selectionPopover.ts";
 /** Sentence containing `startInPage`, for provenance. Best effort, never throws. */
 export function sentenceAround(pageText: string, startInPage: number, quote: string): string {
   if (pageText === "") return quote;
-  const from = Math.max(0, startInPage);
-  // A generous window, then trimmed to sentence-ish boundaries. Cheap and
-  // good enough: provenance is context for the learner, not a parser input.
-  const windowStart = Math.max(0, from - 200);
-  const windowEnd = Math.min(pageText.length, from + quote.length + 200);
-  const slice = pageText.slice(windowStart, windowEnd).replace(/\s+/g, " ").trim();
-  const relStart = from - windowStart;
-  const stop = slice.indexOf(".", relStart);
-  const stopBang = slice.indexOf("!", relStart);
-  const stopQ = slice.indexOf("?", relStart);
-  const candidates = [stop, stopBang, stopQ].filter((i): i is number => i >= relStart);
-  if (candidates.length === 0) return slice;
-  return slice.slice(0, Math.min(...candidates) + 1).trim();
+  const from = Math.max(0, Math.min(pageText.length, startInPage));
+  const through = Math.min(pageText.length, from + quote.length);
+  // Keep complete sentences; provider limits reject long context rather than silently crop it.
+  const sentences = [...new Intl.Segmenter("en", { granularity: "sentence" }).segment(pageText)];
+  const start = sentences.find(part => part.index + part.segment.length > from)?.index ?? 0;
+  const endPart = sentences.find(part => part.index + part.segment.length >= through);
+  const end = endPart ? endPart.index + endPart.segment.length : pageText.length;
+  return pageText.slice(start, end).replace(/\s+/g, " ").trim() || quote;
 }
 
 export type BuildSelectionInput = {

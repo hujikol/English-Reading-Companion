@@ -97,3 +97,7 @@ describe("indonesianFor: drops what a learner does not want", () => {
     expect(indonesianFor(entry("run", "verb", [long]))).toEqual([]);
   });
 });
+
+it("keeps entry-level Indonesian translations emitted by Wiktextract", () => {
+  expect(indonesianFor({ word: "water", pos: "noun", senses: [{ glosses: ["A liquid"], tags: ["uncountable"] }], translations: [{ lang_code: "id", word: "air" }] })).toContain("air");
+});

@@ -73,6 +73,7 @@ const VENDOR_ASSETS: readonly {
   pkg: string;
   /** true = one file; false = every file in the directory */
   single: boolean;
+  required?: boolean;
   /**
    * Version string reported for this group. Defaults to the npm package
    * version; set `version` for assets that are not an npm package (the
@@ -90,8 +91,18 @@ const VENDOR_ASSETS: readonly {
     from: "public/dictionary",
     urlPrefix: "/dictionary",
     pkg: "Wiktionary CC BY-SA 4.0/GFDL via kaikki.org",
-    version: "en-id-0.1.0",
     single: false,
+  },
+  {
+    group: "optional-ai",
+    kind: "wasm",
+    producer: "A",
+    from: "public/models/qwen3-4b-webgpu.wasm",
+    urlPrefix: "/models/qwen3-4b-webgpu.wasm",
+    pkg: "Qwen3-4B-q4f16_1-webgpu",
+    version: "Qwen3-4B-q4f16_1-webgpu",
+    single: true,
+    required: false,
   },
   {
     group: "pdfjs-cmaps",
@@ -311,6 +322,12 @@ const MANIFEST = {
 
 type Measured = { url: string; bytes: number; gz: number; sha: string };
 
+/** Optional AI bundles must have stable producer names; entry dependencies stay shell. */
+export function bundleGroup(url: string, entryRefs: ReadonlySet<string>): AssetGroupId {
+  if (entryRefs.has(url)) return "shell";
+  return /\/(?:explain[.-]worker|webllm)[.-]/.test(url) ? "optional-ai" : "lazy-chunks";
+}
+
 async function measure(absPath: string, url: string): Promise<Measured> {
   const bytes = await readFile(absPath);
   return { url, bytes: bytes.length, gz: gzipBytes(bytes), sha: sha384(bytes) };
@@ -332,11 +349,13 @@ async function collect(): Promise<Inventory> {
     });
   };
 
-  // Vendor assets: required. A PDF that cannot render or extract offline is
-  // the difference between a reading app and a shell.
+  // Reader assets are required; optional local AI does not gate offline reading.
   for (const spec of VENDOR_ASSETS) {
     const abs = path.join(ROOT, spec.from);
-    const producerVersion = spec.version ?? (await pkgVersion(spec.pkg));
+    if (spec.required === false && !(await exists(abs))) continue;
+    const producerVersion = spec.group === "dictionary"
+      ? `en-id-${(JSON.parse(await readFile(path.join(abs, "manifest.json"), "utf8")) as { packVersion: string }).packVersion}`
+      : spec.version ?? (await pkgVersion(spec.pkg));
     if (spec.single) {
       const m = await measure(abs, spec.urlPrefix);
       account(
@@ -348,7 +367,7 @@ async function collect(): Promise<Inventory> {
           version: producerVersion,
           integrity: m.sha,
           bytes: m.bytes,
-          required: true,
+          required: spec.required !== false,
           group: spec.group,
         },
         m.gz,
@@ -369,7 +388,7 @@ async function collect(): Promise<Inventory> {
           version: producerVersion,
           integrity: m.sha,
           bytes: m.bytes,
-          required: true,
+          required: spec.required !== false,
           group: spec.group,
         },
         m.gz,
@@ -405,13 +424,10 @@ async function collect(): Promise<Inventory> {
   for (const file of shellFiles) {
     if (!(await exists(file.abs))) throw new Error(`missing shell asset: ${file.abs}`);
     const m = await measure(file.abs, file.url);
-    // A hashed bundle that index.html does not reference is a lazily imported
-    // format engine; index.html, the manifest, the icons and the referenced
-    // entry assets are the shell.
-    const isLazy = file.hashed && !entryRefs.has(file.url);
+    const group = file.hashed ? bundleGroup(file.url, entryRefs) : "shell";
     account(
       {
-        id: `${isLazy ? "lazy-chunk" : "shell"}:${path.basename(file.url)}`,
+        id: `${group === "lazy-chunks" ? "lazy-chunk" : group}:${path.basename(file.url)}`,
         url: file.url,
         kind: "shell",
         producer: SHELL_PRODUCER,
@@ -421,8 +437,8 @@ async function collect(): Promise<Inventory> {
         version: file.hashed ? `sha256:${m.sha.slice(7, 19)}` : version,
         integrity: m.sha,
         bytes: m.bytes,
-        required: true,
-        group: isLazy ? "lazy-chunks" : "shell",
+        required: group !== "optional-ai",
+        group,
       },
       m.gz,
     );
@@ -538,7 +554,7 @@ async function main(argv: readonly string[]): Promise<number> {
 // vite-node rewrites process.argv[1] to its own CLI shim, so comparing it to
 // this file's basename is false and main() would silently never run. Match on
 // this module's own path instead, which vite-node preserves in import.meta.url.
-const invokedDirectly = import.meta.url.endsWith("offline-assets.build.ts");
+const invokedDirectly = import.meta.url.endsWith("offline-assets.build.ts") && process.env.ERC_NO_CLI !== "1";
 if (invokedDirectly) {
   main(process.argv.slice(2))
     .then((code) => process.exit(code))

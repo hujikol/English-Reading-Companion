@@ -51,7 +51,9 @@ export type Occurrence = {
 
 export type LearningExplanation = {
   naturalTranslation: string;
+  sentenceExplanation?: string;
   contextualMeaning?: string;
+  alternateMeanings?: { meaning: string; usage: string; example: { english: string; indonesian: string } }[];
   partOfSpeech?: string;
   grammarNote?: string;
   simplerEnglish?: string;

@@ -137,3 +137,27 @@ export function reanchor(input: {
 }
 
 export { sanitizedText };
+
+import type { OpenFailure } from "./adapter.ts";
+
+export function openFailureMessage(failure: OpenFailure): string {
+  if (failure.reason !== "unsupported") return "This file could not be opened as an EPUB.";
+  switch (failure.unsupported.kind) {
+    case "drm":
+      return "This book is DRM-protected, so its text cannot be read here.";
+    case "encrypted":
+      return "This book is encrypted, so its text cannot be read here.";
+    case "fixed-layout":
+      return "This is a fixed-layout book. Only reflowable text books can be read in this version.";
+    case "oversized":
+      return failure.detail.includes("expansion")
+        ? "This book is compressed in a way that indicates a decompression bomb, so it was not opened."
+        : "This book is too large to open safely on this device.";
+    case "zip":
+      return "This book's archive contains unsafe file paths, so it was not opened.";
+    case "needs-encoding":
+      return "This chapter's text is not in a readable encoding.";
+    default:
+      return "This file could not be opened as an EPUB.";
+  }
+}

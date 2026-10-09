@@ -84,3 +84,9 @@ describe("sentenceAround", () => {
     expect(sentenceAround("a\n\n  b   c.", 0, "a")).not.toMatch(/\n/);
   });
 });
+
+
+it("captures a complete long sentence without silently cropping either side of the selection", () => {
+  const sentence = "The narrator " + "describes this unusual situation ".repeat(15) + "as leverage " + "because circumstances matter ".repeat(15) + ".";
+  expect(sentenceAround("Earlier sentence. " + sentence + " Later sentence.", 18 + sentence.indexOf("leverage"), "leverage")).toBe(sentence);
+});

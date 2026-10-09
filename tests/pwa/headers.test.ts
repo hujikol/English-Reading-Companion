@@ -68,11 +68,11 @@ describe("hosting headers", () => {
     expect(directive("form-action")).toEqual(["'none'"]);
   });
 
-  it("scopes connect-src to self plus one AI host", () => {
+  it("scopes connect-src to the explicit translation and model-download hosts", () => {
     const connect = directive("connect-src");
     expect(connect[0]).toBe("'self'");
     expect(connect.slice(1).every((o) => /^https:\/\/[a-z0-9.-]+$/.test(o))).toBe(true);
-    expect(connect.length).toBeLessThanOrEqual(3);
+    expect(connect).toEqual(["\'self\'", "https://api.mymemory.translated.net", "https://huggingface.co", "https://us.aws.cdn.hf.co"]);
   });
 
   it("keeps fonts and manifest self-hosted", () => {

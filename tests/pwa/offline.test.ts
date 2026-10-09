@@ -268,10 +268,10 @@ describe("offline asset inventory", () => {
     expect(urls).not.toContain("/pdfjs/pdf.worker.mjs");
     expect(urls.filter((u) => u.startsWith("/pdfjs/") && u.includes("pdf.worker"))).toHaveLength(0);
     expect(urls.filter((u) => u.startsWith("/assets/") && u.includes("pdf.worker")).length).toBeGreaterThan(0);
-    // Every one of them must actually gate the Ready-offline claim, or the
-    // claim would survive an install that cannot render a PDF offline.
+    // Reader assets gate readiness; optional local AI never blocks reading.
     for (const url of urls) {
-      expect(inventory.assets.find((a) => a.url === url)?.required).toBe(true);
+      const asset = inventory.assets.find((a) => a.url === url)!;
+      expect(asset.required).toBe(asset.group !== "optional-ai");
     }
   });
 

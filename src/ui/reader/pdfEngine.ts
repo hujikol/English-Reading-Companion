@@ -18,7 +18,7 @@
 
 import type { PdfAdapter, PdfCapabilities, PdfPageHandle, PdfPassword, RenderTask } from "../../features/reader/pdf/adapter.ts";
 import { PdfPasswordRequiredError, classifyPdfOpenError } from "../../features/reader/pdf/adapter.ts";
-import { pageTextOf } from "./pageText.ts";
+import { pageTextOf, readingTextOf } from "./pageText.ts";
 
 /**
  * The slice of the pdfjs API this file uses. Structural rather than
@@ -93,6 +93,10 @@ class PdfjsPage implements PdfjsPageHandle {
     // join injects spaces inside them ("oppor tunities"). pageTextOf decides
     // spacing from the item geometry.
     return pageTextOf(content.items);
+  }
+
+  async readingText(isWord: (word: string) => Promise<boolean>): Promise<string> {
+    return readingTextOf((await this.page.getTextContent()).items, isWord);
   }
 
   /**
@@ -199,6 +203,7 @@ export const pdfjsAdapter: PdfjsAdapter = {
  * selectable layer over a canvas it already rendered.
  */
 export type PdfjsPageHandle = PdfPageHandle & {
+  readingText?(isWord: (word: string) => Promise<boolean>): Promise<string>;
   mountTextLayer(container: HTMLElement, scale: number): Promise<() => Promise<void>>;
 };
 

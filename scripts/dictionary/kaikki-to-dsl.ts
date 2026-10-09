@@ -61,7 +61,7 @@ const BORING_HEADS = new Set([
 /** Surnames and places that survive the Capitalised filter. */
 const PLACE_OR_NAME = /\b(shire|ville|burg|stan|ford|field|wood|dale|mont|ton|ham|shire|shire)$/i;
 
-type Translation = { word?: unknown; lang_code?: unknown };
+type Translation = { word?: unknown; lang_code?: unknown; tags?: unknown };
 type Sense = {
   glosses?: unknown;
   tags?: unknown;
@@ -72,6 +72,7 @@ type Record_ = {
   pos?: unknown;
   senses?: unknown;
   forms?: unknown;
+  translations?: unknown;
 };
 
 const WORDS = new Set(["a", "an", "the"]);
@@ -112,6 +113,12 @@ export function indonesianFor(entry: Record_): string[] {
       if (v === "" || v.length > 40) continue;
       out.push(v);
     }
+  }
+  // Wiktextract also stores translations on the entry, not only inside senses.
+  for (const t of Array.isArray(entry.translations) ? entry.translations as Translation[] : []) {
+    if (t?.lang_code !== "id" || typeof t.word !== "string" || asStringArray(t.tags).some(tag => SKIP_TAGS.has(tag))) continue;
+    const value = t.word.trim();
+    if (value && value.length <= 40) out.push(value);
   }
   return [...new Set(out)];
 }
@@ -191,6 +198,7 @@ export async function convert(input: string, output: string, attribution: string
       // Same headword seen again (a second part of speech, or a second record).
       // Merge the glosses into one block: the pack builder rejects a duplicate
       // headword outright, and dropping the record would lose senses.
+      if (existing.pos !== (POS_MAP[entry.pos as string] ?? "noun")) existing.pos = "multiple";
       for (const t of translations) {
         if (!existing.translations.includes(t)) existing.translations.push(t);
       }

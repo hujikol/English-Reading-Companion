@@ -16,7 +16,7 @@ export type CaptureInput = {
   lemma?: string;
   note?: string;
   /** absent for a manual save with no dictionary match */
-  provenance?: { kind: Provenance["kind"]; sourceVersion?: string };
+  provenance?: { kind: Provenance["kind"]; sourceVersion?: string; userEdited?: boolean };
   /** durable explanation snapshot supplied by Track G, copied into explanationText */
   explanation?: Omit<Explanation, "surface" | "createdAt">;
 };
@@ -36,8 +36,12 @@ const senseKey = (meaning: string): string => meaning.normalize("NFKC").toLowerC
 /** Single readable copy of a validated AI result; the structured row is the source of truth. */
 export function explanationTextOf(result: LearningExplanation): string {
   const parts: string[] = [result.naturalTranslation];
+  if (result.sentenceExplanation) parts.push(`Sentence meaning: ${result.sentenceExplanation}`);
   if (result.partOfSpeech) parts.push(`(${result.partOfSpeech})`);
   if (result.contextualMeaning) parts.push(result.contextualMeaning);
+  for (const alternative of result.alternateMeanings ?? []) {
+    parts.push(`Other meaning: ${alternative.meaning}`, `Usage: ${alternative.usage}`, `e.g. ${alternative.example.english} — ${alternative.example.indonesian}`);
+  }
   if (result.grammarNote) parts.push(`Grammar: ${result.grammarNote}`);
   if (result.simplerEnglish) parts.push(`Simpler: ${result.simplerEnglish}`);
   if (result.example) parts.push(`e.g. ${result.example.english} — ${result.example.indonesian}`);
@@ -65,7 +69,7 @@ export async function capture(
   const normalizedForm = normalizeForm(surface);
   const provenance: Provenance = {
     kind: input.provenance?.kind ?? "manual",
-    userEdited: false,
+    userEdited: input.provenance?.userEdited ?? false,
     createdAt: now,
     ...(input.provenance?.sourceVersion === undefined ? {} : { sourceVersion: input.provenance.sourceVersion }),
   };

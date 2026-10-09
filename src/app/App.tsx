@@ -1,9 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { createBrowserExplanationProvider } from "../features/dictionary/explain.ts";
 import { LibraryScreen } from "./LibraryScreen.tsx";
 import { ReviewScreen } from "./ReviewScreen.tsx";
 import { VocabularyScreen } from "./VocabularyScreen.tsx";
 import { ReaderScreen } from "./ReaderScreen.tsx";
-import { EpubScreen } from "./EpubScreen.tsx";
 import { loadDictionary } from "../features/dictionary/loadPack.ts";
 import type { LoadState } from "../features/dictionary/loadPack.ts";
 import type { DocumentRecord } from "../db/index.ts";
@@ -20,6 +20,8 @@ const TABS: { id: Tab; label: string }[] = [
 // ponytail: four tabs, useState, no router. Add one when there is a URL worth
 // keeping in sync — a tab that cannot be linked to does not need a router.
 export function App() {
+  const [localProgress, setLocalProgress] = useState("");
+  const ai = useMemo(() => ({ configured: true as const, provider: createBrowserExplanationProvider(setLocalProgress) }), []);
   const [tab, setTab] = useState<Tab>("library");
   // The library hands a stored document to the reader. Holding the File here
   // means switching tabs does not lose it, and re-rendering the reader does not
@@ -28,10 +30,6 @@ export function App() {
   // The stored record the file came from. Without it the reader mints a new
   // document id, so reopening duplicates the library entry and loses progress.
   const [pendingRecord, setPendingRecord] = useState<DocumentRecord | undefined>(undefined);
-  // EPUB bytes, read once when the library hands over an EPUB. The PDF reader
-  // takes a File; the EPUB renderer takes bytes, so both are kept in step here
-  // rather than making each screen re-read the blob.
-  const [pendingEpub, setPendingEpub] = useState<{ bytes: Uint8Array; name: string } | undefined>(undefined);
   // Pre-load the dictionary at startup so the first lookup is instant, and a
   // broken pack is reported in the header instead of inside the popover card.
   const [dictState, setDictState] = useState<LoadState>({ kind: "busy" });
@@ -48,21 +46,10 @@ export function App() {
 
   const dictLoading = dictState.kind === "busy";
   const packAttribution = dictState.kind === "ready"
-    ? { source: dictState.attribution.source, license: dictState.attribution.license }
+    ? { source: dictState.attribution.source, license: dictState.attribution.license, packVersion: dictState.packVersion }
     : null;
 
   const openInReader = (file: File, document?: DocumentRecord) => {
-    const isEpub = /\.epub$/i.test(file.name);
-    if (isEpub) {
-      void file.arrayBuffer().then((buf) => {
-        setPendingEpub({ bytes: new Uint8Array(buf), name: file.name });
-        setPendingDocument(undefined);
-        setPendingRecord(undefined);
-        setTab("reader");
-      });
-      return;
-    }
-    setPendingEpub(undefined);
     setPendingDocument(file);
     setPendingRecord(document);
     setTab("reader");
@@ -100,17 +87,15 @@ export function App() {
           </div>
         )}
       </nav>
-      {/* ONE panel at a time. Rendering all four and hiding three with `flex-1`
+      {/* Keep the reader mounted across tabs to preserve its active document.
+          ONE visible panel at a time. Rendering all four and hiding three with `flex-1`
           left the invisible ones claiming height, which is why the header
           whitespace grew from Reader to Vocabulary to Review. */}
-      <main className="min-h-0 flex-1 overflow-y-auto">
+      <main className={tab === "reader" ? "min-h-0 flex-1 overflow-hidden" : "min-h-0 flex-1 overflow-y-auto"}>
         {tab === "library" && <LibraryScreen onOpenDocument={openInReader} />}
-        {tab === "reader" &&
-          (pendingEpub === undefined ? (
-            <ReaderScreen pendingDocument={pendingDocument} pendingRecord={pendingRecord} packAttribution={packAttribution} dictLoading={dictLoading} />
-          ) : (
-            <EpubScreen key={pendingEpub.name} bytes={pendingEpub.bytes} fileName={pendingEpub.name} />
-          ))}
+        <div className={tab === "reader" ? "h-full min-h-0" : "hidden"} aria-hidden={tab !== "reader"}>
+          <ReaderScreen pendingDocument={pendingDocument} pendingRecord={pendingRecord} packAttribution={packAttribution} dictLoading={dictLoading} ai={ai} localProgress={localProgress} />
+        </div>
         {tab === "vocabulary" && <VocabularyScreen />}
         {tab === "review" && <ReviewScreen />}
       </main>
